@@ -1,0 +1,5 @@
+*.swp
+bin/
+release/
+vendor/
+hub-kubernetes-agent
