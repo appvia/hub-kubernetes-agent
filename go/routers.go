@@ -57,10 +57,10 @@ var routes = Routes{
 	},
 
 	Route{
-		"NamespacesNameList",
+		"NamespacesList",
 		strings.ToUpper("Get"),
 		"/api/hub.appvia.io/v1beta/namespaces",
-		NamespacesNameList,
+		NamespacesList,
 	},
 
 	Route{

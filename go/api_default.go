@@ -44,7 +44,7 @@ func getClient(pathToCfg string) (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(config)
 }
 
-func NamespacesNameList(w http.ResponseWriter, r *http.Request) {
+func NamespacesList(w http.ResponseWriter, r *http.Request) {
 	clientset, err := getClient(os.Getenv("KUBECONFIG"))
 
 	Namespaces, err := clientset.CoreV1().Namespaces().List(metav1.ListOptions{})
