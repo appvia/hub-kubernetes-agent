@@ -57,6 +57,20 @@ var routes = Routes{
 	},
 
 	Route{
+		"NamespacesNameList",
+		strings.ToUpper("Get"),
+		"/api/hub.appvia.io/v1beta/namespaces",
+		NamespacesNameList,
+	},
+
+	Route{
+		"NamespacesNameGet",
+		strings.ToUpper("Get"),
+		"/api/hub.appvia.io/v1beta/namespaces/{name}",
+		NamespacesNameGet,
+	},
+
+	Route{
 		"NamespacesNameDelete",
 		strings.ToUpper("Delete"),
 		"/api/hub.appvia.io/v1beta/namespaces/{name}",

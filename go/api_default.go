@@ -11,35 +11,332 @@
 package swagger
 
 import (
+	"log"
 	"net/http"
+	"os"
+
+	"github.com/bitly/go-simplejson"
+	"github.com/gorilla/mux"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
+var clientset *kubernetes.Clientset
+
+func getClient(pathToCfg string) (*kubernetes.Clientset, error) {
+	var config *rest.Config
+	var err error
+	if pathToCfg == "" {
+		log.Printf("Using in cluster config")
+		config, err = rest.InClusterConfig()
+	} else {
+		log.Printf("Using out of cluster config")
+		config, err = clientcmd.BuildConfigFromFlags("", pathToCfg)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return kubernetes.NewForConfig(config)
+}
+
+func NamespacesNameList(w http.ResponseWriter, r *http.Request) {
+	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+
+	Namespaces, err := clientset.CoreV1().Namespaces().List(metav1.ListOptions{})
+
+	json := simplejson.New()
+
+	if errors.IsNotFound(err) {
+		log.Printf("Listing namespaces\n")
+		json.Set("status", "not found")
+	} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
+		log.Printf("Error listing namespaces: %v\n",
+			statusError.ErrStatus.Message)
+		json.Set("status", "error")
+	} else if err != nil {
+		json.Set("status", "error")
+		panic(err.Error())
+	} else {
+		var namespaces []string
+
+		for _, namespace := range Namespaces.Items {
+			namespaces = append(namespaces, namespace.Name)
+		}
+		json.Set("namespaces", namespaces)
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
+
+	payload, err := json.MarshalJSON()
+	if err != nil {
+		log.Println(err)
+	}
+	w.Write(payload)
+}
+
+func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
+	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+
+	vars := mux.Vars(r)
+	name := vars["name"]
+	namespace, err := clientset.CoreV1().Namespaces().Get(name, metav1.GetOptions{})
+	json := simplejson.New()
+
+	if err != nil {
+		log.Println(err)
+		json.Set("status", "error")
+	} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
+		log.Printf("Error getting namespace %s: %v\n",
+			name, statusError.ErrStatus.Message)
+		json.Set("status", "error")
+	} else {
+		json.Set("name", name)
+		log.Printf("Found namespace: %s\n", name)
+	}
+	_ = namespace
+
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+
+	payload, err := json.MarshalJSON()
+
+	if err != nil {
+		log.Println(err)
+	}
+	w.Write(payload)
+}
+
+func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
+	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+
+	vars := mux.Vars(r)
+	name := vars["name"]
+
+	log.Printf("Deleting namespace: %v", name)
+
+	json := simplejson.New()
+
+	deletePolicy := metav1.DeletePropagationForeground
+
+	if err := clientset.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{
+		PropagationPolicy: &deletePolicy,
+	}); errors.IsNotFound(err) {
+		log.Printf("Namespace %s not found\n", name)
+		json.Set("status", "not found")
+	} else if err != nil {
+		json.Set("status", "error")
+		panic(err.Error())
+	} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
+		log.Printf("Error getting namespace %s: %v\n",
+			name, statusError.ErrStatus.Message)
+		json.Set("status", "error")
+	} else {
+		json.Set("status", "deleted")
+		log.Printf("Deleted namespace %s\n", name)
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+
+	payload, err := json.MarshalJSON()
+	if err != nil {
+		log.Println(err)
+	}
+	w.Write(payload)
 }
 
 func NamespacesNamePost(w http.ResponseWriter, r *http.Request) {
+	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+
+	vars := mux.Vars(r)
+	name := vars["name"]
+	namespace, err := clientset.CoreV1().Namespaces().Create(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	})
+	json := simplejson.New()
+
+	if err != nil {
+		log.Println(err)
+		json.Set("status", "error")
+	} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
+		log.Printf("Error creating namespace %s: %v\n",
+			name, statusError.ErrStatus.Message)
+		json.Set("status", "error")
+	} else {
+		json.Set("name", name)
+		log.Printf("Created namespace: %s\n", name)
+	}
+	_ = namespace
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
+
+	payload, err := json.MarshalJSON()
+
+	if err != nil {
+		log.Println(err)
+	}
+	w.Write(payload)
 }
 
 func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
+	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+
+	vars := mux.Vars(r)
+	namespace := vars["namespace"]
+
+	if namespace == "" {
+		namespace = "default"
+	}
+
+	serviceAccounts, err := clientset.CoreV1().ServiceAccounts(namespace).List(metav1.ListOptions{})
+	_ = serviceAccounts
+
+	json := simplejson.New()
+
+	if errors.IsNotFound(err) {
+		log.Printf("service accounts \n")
+		json.Set("status", "not found")
+	} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
+		log.Printf("Error listing service accounts for namespace %s: %v\n",
+			namespace, statusError.ErrStatus.Message)
+		json.Set("status", "error")
+	} else if err != nil {
+		json.Set("status", "error")
+		panic(err.Error())
+	} else {
+		var serviceAccountList []string
+		for _, sa := range serviceAccounts.Items {
+			serviceAccountList = append(serviceAccountList, sa.Name)
+		}
+		json.Set("service-accounts", serviceAccountList)
+		log.Printf("Listed service accounts for namespace %s\n", namespace)
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
+
+	payload, err := json.MarshalJSON()
+	if err != nil {
+		log.Println(err)
+	}
+	w.Write(payload)
 }
 
 func ServiceAccountsNamespaceNameDelete(w http.ResponseWriter, r *http.Request) {
+	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+
+	vars := mux.Vars(r)
+	name := vars["name"]
+	namespace := vars["namespace"]
+
+	if namespace == "" {
+		namespace = "default"
+	}
+	json := simplejson.New()
+
+	deletePolicy := metav1.DeletePropagationForeground
+	if err := clientset.CoreV1().ServiceAccounts(namespace).Delete(name, &metav1.DeleteOptions{
+		PropagationPolicy: &deletePolicy,
+	}); errors.IsNotFound(err) {
+		log.Printf("service account %s not found\n", name)
+		json.Set("status", "not found")
+	} else if err != nil {
+		json.Set("status", "error")
+		panic(err.Error())
+	} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
+		log.Printf("Error deleting service account %s: %v\n",
+			name, statusError.ErrStatus.Message)
+		json.Set("status", "error")
+	} else {
+		json.Set("status", "deleted")
+		log.Printf("Deleted service account %s\n", name)
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
+
+	payload, err := json.MarshalJSON()
+	if err != nil {
+		log.Println(err)
+	}
+	w.Write(payload)
 }
 
 func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
+	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+
+	vars := mux.Vars(r)
+	name := vars["name"]
+	namespace := vars["namespace"]
+
+	if namespace == "" {
+		namespace = "default"
+	}
+
+	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name, metav1.GetOptions{})
+	_ = serviceAccount
+
+	json := simplejson.New()
+
+	if errors.IsNotFound(err) {
+		log.Printf("Service account %s not found\n", name)
+		json.Set("status", "not found")
+	} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
+		log.Printf("Error getting service account %s: %v\n",
+			name, statusError.ErrStatus.Message)
+		json.Set("status", "error")
+	} else if err != nil {
+		json.Set("status", "error")
+		panic(err.Error())
+	} else {
+		json.Set("name", name)
+		log.Printf("Found service account %s\n", name)
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
+
+	payload, err := json.MarshalJSON()
+	if err != nil {
+		log.Println(err)
+	}
+	w.Write(payload)
 }
 
 func ServiceAccountsNamespaceNamePost(w http.ResponseWriter, r *http.Request) {
+	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+
+	vars := mux.Vars(r)
+	name := vars["name"]
+	namespace := vars["namespace"]
+
+	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Create(&corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	})
+	if err != nil {
+		log.Println(err)
+	}
+	_ = serviceAccount
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
+	log.Printf("Creating service account: %v", name)
+	json := simplejson.New()
+	json.Set("name", name)
+
+	payload, err := json.MarshalJSON()
+	if err != nil {
+		log.Println(err)
+	}
+	w.Write(payload)
 }

@@ -144,7 +144,31 @@ paths:
         default:
           "$ref": "#/responses/apierror"
 
+  "/namespaces":
+    get:
+      summary: Lists all namespaces
+      description: |
+        Used to list namespaces
+      responses:
+        '200':
+          "$ref": "#/responses/namespace"
+        default:
+          "$ref": "#/responses/apierror"
+
   "/namespaces/{name}":
+    get:
+      summary: Retrieves a namespace
+      description: |
+        Used to create a new namespace
+      parameters:
+        - "$ref": "#/parameters/namespace-definition"
+        - "$ref": "#/parameters/name"
+      responses:
+        '200':
+          "$ref": "#/responses/namespace"
+        default:
+          "$ref": "#/responses/apierror"
+
     post:
       summary: Create a new namespace
       description: |

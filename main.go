@@ -35,6 +35,7 @@ func main() {
 	log.Printf("Server started")
 
 	router := sw.NewRouter()
+	router.Use(Middleware)
 
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
