@@ -14,6 +14,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"encoding/base64"
 
 	"github.com/bitly/go-simplejson"
 	"github.com/gorilla/mux"
@@ -28,19 +29,27 @@ import (
 
 var clientset *kubernetes.Clientset
 
-func getClient(pathToCfg string) (*kubernetes.Clientset, error) {
-	var config *rest.Config
-	var err error
-	if pathToCfg == "" {
-		log.Printf("Using in cluster config")
-		config, err = rest.InClusterConfig()
-	} else {
-		log.Printf("Using out of cluster config")
-		config, err = clientcmd.BuildConfigFromFlags("", pathToCfg)
+func getClient(server, token, caCert string) (*kubernetes.Clientset, error) {
+	decodedCert, err := base64.StdEncoding.DecodeString(caCert)
+
+	if err != nil {
+		fmt.Println("decode error:", err)
+		return nil, err
 	}
+
+	config := &rest.Config{
+		Host:            server,
+		BearerToken:     token,
+		TLSClientConfig: rest.TLSClientConfig{CAData: decodedCert},
+	}
+
+	client, err := kubernetes.NewForConfig(config)
+	_ = client
+
 	if err != nil {
 		return nil, err
 	}
+
 	return kubernetes.NewForConfig(config)
 }
 
@@ -300,6 +309,8 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 	} else {
 		json.Set("name", name)
 		log.Printf("Found service account %s\n", name)
+		secret, err := clientset.CoreV1().Secrets(namespace).Get(serviceAccount.Secrets[0].Name, metav1.GetOptions{})
+		json.Set("token": string(secret.Data["token"]))
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
