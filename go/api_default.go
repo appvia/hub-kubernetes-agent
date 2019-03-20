@@ -13,7 +13,6 @@ package swagger
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -24,8 +23,8 @@ import (
 	"k8s.io/client-go/rest"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rbac "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var clientset *kubernetes.Clientset
@@ -34,7 +33,7 @@ func getClient(server, token, caCert string) (*kubernetes.Clientset, error) {
 	decodedCert, err := base64.StdEncoding.DecodeString(caCert)
 
 	if err != nil {
-		fmt.Println("decode error:", err)
+		log.Println("decode error:", err)
 		return nil, err
 	}
 
@@ -166,16 +165,15 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	name := vars["name"]
 
-    decoder := json.NewDecoder(r.Body)
+	decoder := json.NewDecoder(r.Body)
 	var s GlobalServiceAccount
 	decoder.Decode(&s)
 
-    if err != nil {
-        panic(err)
-    }
+	if err != nil {
+		panic(err)
+	}
 
 	globalServiceAccountName := s.Name
-	log.Println(globalServiceAccountName)
 
 	namespace, err := clientset.CoreV1().Namespaces().Create(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -200,9 +198,9 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	_ = namespace
 
 	subject := rbac.Subject{
-		Kind: "ServiceAccount",
-		APIGroup: "",
-		Name: globalServiceAccountName,
+		Kind:      "ServiceAccount",
+		APIGroup:  "",
+		Name:      globalServiceAccountName,
 		Namespace: "default",
 	}
 
@@ -212,13 +210,13 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 
 	roleRef := rbac.RoleRef{
 		APIGroup: "rbac.authorization.k8s.io",
-		Kind: "ClusterRole",
-		Name: "cluster-admin",
+		Kind:     "ClusterRole",
+		Name:     "cluster-admin",
 	}
 
 	roleBinding := rbac.RoleBinding{
 		Subjects: subjects,
-		RoleRef: roleRef,
+		RoleRef:  roleRef,
 		ObjectMeta: metav1.ObjectMeta{
 			Name: globalServiceAccountName + "-cluster-admin-" + name,
 		},
