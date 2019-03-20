@@ -78,10 +78,10 @@ var routes = Routes{
 	},
 
 	Route{
-		"NamespacesNamePost",
-		strings.ToUpper("Post"),
+		"NamespacesNamePut",
+		strings.ToUpper("Put"),
 		"/api/hub.appvia.io/v1beta/namespaces/{name}",
-		NamespacesNamePost,
+		NamespacesNamePut,
 	},
 
 	Route{
@@ -106,10 +106,10 @@ var routes = Routes{
 	},
 
 	Route{
-		"ServiceAccountsNamespaceNamePost",
-		strings.ToUpper("Post"),
+		"ServiceAccountsNamespaceNamePut",
+		strings.ToUpper("Put"),
 		"/api/hub.appvia.io/v1beta/service-accounts/{namespace}/{name}",
-		ServiceAccountsNamespaceNamePost,
+		ServiceAccountsNamespaceNamePut,
 	},
 
 	Route{

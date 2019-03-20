@@ -11,17 +11,16 @@
 package swagger
 
 import (
+	"encoding/base64"
+	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"encoding/base64"
 
 	"github.com/bitly/go-simplejson"
 	"github.com/gorilla/mux"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,13 +53,9 @@ func getClient(server, token, caCert string) (*kubernetes.Clientset, error) {
 }
 
 func NamespacesList(w http.ResponseWriter, r *http.Request) {
-	token := r.Header.Get("X-Kube-Token")
-	server := r.Header.Get("X-Kube-API-URL")
-	caCert := r.Header.Get("X-Kube-CA")
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
-	clientset, err := getClient(server, token, caCert)
-
-	Namespaces, err := clientset.CoreV1().Namespaces().List(metav1.ListOptions{})
+	namespaces, err := clientset.CoreV1().Namespaces().List(metav1.ListOptions{})
 
 	json := simplejson.New()
 
@@ -75,12 +70,12 @@ func NamespacesList(w http.ResponseWriter, r *http.Request) {
 		json.Set("status", "error")
 		panic(err.Error())
 	} else {
-		var namespaces []string
+		var namespaceList []string
 
-		for _, namespace := range Namespaces.Items {
-			namespaces = append(namespaces, namespace.Name)
+		for _, namespace := range namespaces.Items {
+			namespaceList = append(namespaceList, namespace.Name)
 		}
-		json.Set("namespaces", namespaces)
+		json.Set("namespaces", namespaceList)
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -94,7 +89,7 @@ func NamespacesList(w http.ResponseWriter, r *http.Request) {
 }
 
 func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	vars := mux.Vars(r)
 	name := vars["name"]
@@ -126,7 +121,7 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	vars := mux.Vars(r)
 	name := vars["name"]
@@ -164,8 +159,8 @@ func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
 	w.Write(payload)
 }
 
-func NamespacesNamePost(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	vars := mux.Vars(r)
 	name := vars["name"]
@@ -201,7 +196,7 @@ func NamespacesNamePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	vars := mux.Vars(r)
 	namespace := vars["namespace"]
@@ -245,7 +240,7 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func ServiceAccountsNamespaceNameDelete(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	vars := mux.Vars(r)
 	name := vars["name"]
@@ -285,7 +280,7 @@ func ServiceAccountsNamespaceNameDelete(w http.ResponseWriter, r *http.Request) 
 }
 
 func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	vars := mux.Vars(r)
 	name := vars["name"]
@@ -314,7 +309,10 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 		json.Set("name", name)
 		log.Printf("Found service account %s\n", name)
 		secret, err := clientset.CoreV1().Secrets(namespace).Get(serviceAccount.Secrets[0].Name, metav1.GetOptions{})
-		json.Set("token": string(secret.Data["token"]))
+		if err != nil {
+			log.Println(err)
+		}
+		json.Set("token", string(secret.Data["token"]))
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -327,8 +325,8 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 	w.Write(payload)
 }
 
-func ServiceAccountsNamespaceNamePost(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	vars := mux.Vars(r)
 	name := vars["name"]

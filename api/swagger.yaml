@@ -117,7 +117,7 @@ paths:
         default:
           "$ref": "#/responses/apierror"
 
-    post:
+    put:
       summary: Creates a service account
       description: |
         Used to create a service account within a specified namespace
@@ -169,7 +169,7 @@ paths:
         default:
           "$ref": "#/responses/apierror"
 
-    post:
+    put:
       summary: Create a new namespace
       description: |
         Used to create a new namespace

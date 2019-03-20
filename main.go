@@ -24,12 +24,31 @@ func Middleware(next http.Handler) http.Handler {
 
 		if token == os.Getenv("AUTH_TOKEN") {
 			log.Printf("Authenticated request")
-			next.ServeHTTP(w, r)
+
+			kubeToken := r.Header.Get("X-Kube-Token")
+			server := r.Header.Get("X-Kube-API-URL")
+			caCert := r.Header.Get("X-Kube-CA")
+
+			if kubeToken == "" {
+				log.Printf("No X-Kube-Token header provided")
+				http.Error(w, "Forbidden", http.StatusForbidden)
+			}
+			if server == "" {
+				log.Printf("No X-Kube-API-URL header provided")
+				http.Error(w, "Forbidden", http.StatusForbidden)
+			}
+			if caCert == "" {
+				log.Printf("No X-Kube-CA header provided")
+				http.Error(w, "Forbidden", http.StatusForbidden)
+			} else {
+				next.ServeHTTP(w, r)
+			}
 		} else {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 		}
 	})
 }
+
 
 func main() {
 	log.Printf("Server started")
