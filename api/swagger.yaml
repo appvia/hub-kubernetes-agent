@@ -15,7 +15,7 @@ securityDefinitions:
     type: apiKey
     in: header
     name: x-token
-basePath: "/api/hub.appvia.io/v1beta"
+basePath: "/api/v1beta"
 consumes:
   - application/json
 produces:
@@ -119,9 +119,9 @@ paths:
 
   "/service-accounts/{namespace}":
     parameters:
-      - $ref: '#/parameters/kube-token'
-      - $ref: '#/parameters/kube-api-url'
-      - $ref: '#/parameters/kube-ca-cert'
+      - $ref: "#/parameters/kube-token"
+      - $ref: "#/parameters/kube-api-url"
+      - $ref: "#/parameters/kube-ca-cert"
     get:
       summary: Retrieves a list of service accounts from within the specified namespace
       description: |
@@ -136,9 +136,9 @@ paths:
 
   "/service-accounts/{namespace}/{name}":
     parameters:
-      - $ref: '#/parameters/kube-token'
-      - $ref: '#/parameters/kube-api-url'
-      - $ref: '#/parameters/kube-ca-cert'
+      - $ref: "#/parameters/kube-token"
+      - $ref: "#/parameters/kube-api-url"
+      - $ref: "#/parameters/kube-ca-cert"
     get:
       summary: Retrieves a service account
       description: |
@@ -183,9 +183,9 @@ paths:
 
   "/namespaces":
     parameters:
-      - $ref: '#/parameters/kube-token'
-      - $ref: '#/parameters/kube-api-url'
-      - $ref: '#/parameters/kube-ca-cert'
+      - $ref: "#/parameters/kube-token"
+      - $ref: "#/parameters/kube-api-url"
+      - $ref: "#/parameters/kube-ca-cert"
     get:
       summary: Lists all namespaces
       description: |
@@ -198,9 +198,9 @@ paths:
 
   "/namespaces/{name}":
     parameters:
-      - $ref: '#/parameters/kube-token'
-      - $ref: '#/parameters/kube-api-url'
-      - $ref: '#/parameters/kube-ca-cert'
+      - $ref: "#/parameters/kube-token"
+      - $ref: "#/parameters/kube-api-url"
+      - $ref: "#/parameters/kube-ca-cert"
     get:
       summary: Retrieves a namespace
       description: |
@@ -219,6 +219,7 @@ paths:
       description: |
         Used to create a new namespace
       parameters:
+        - "$ref": "#/parameters/global-service-account"
         - "$ref": "#/parameters/namespace-definition"
         - "$ref": "#/parameters/name"
       responses:

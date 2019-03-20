@@ -52,70 +52,70 @@ var routes = Routes{
 	Route{
 		"Index",
 		"GET",
-		"/api/hub.appvia.io/v1beta/",
+		"/api/v1beta/",
 		Index,
 	},
 
 	Route{
 		"NamespacesList",
 		strings.ToUpper("Get"),
-		"/api/hub.appvia.io/v1beta/namespaces",
+		"/api/v1beta/namespaces",
 		NamespacesList,
 	},
 
 	Route{
 		"NamespacesNameGet",
 		strings.ToUpper("Get"),
-		"/api/hub.appvia.io/v1beta/namespaces/{name}",
+		"/api/v1beta/namespaces/{name}",
 		NamespacesNameGet,
 	},
 
 	Route{
 		"NamespacesNameDelete",
 		strings.ToUpper("Delete"),
-		"/api/hub.appvia.io/v1beta/namespaces/{name}",
+		"/api/v1beta/namespaces/{name}",
 		NamespacesNameDelete,
 	},
 
 	Route{
 		"NamespacesNamePut",
 		strings.ToUpper("Put"),
-		"/api/hub.appvia.io/v1beta/namespaces/{name}",
+		"/api/v1beta/namespaces/{name}",
 		NamespacesNamePut,
 	},
 
 	Route{
 		"ServiceAccountsNamespaceGet",
 		strings.ToUpper("Get"),
-		"/api/hub.appvia.io/v1beta/service-accounts/{namespace}",
+		"/api/v1beta/service-accounts/{namespace}",
 		ServiceAccountsNamespaceGet,
 	},
 
 	Route{
 		"ServiceAccountsNamespaceNameDelete",
 		strings.ToUpper("Delete"),
-		"/api/hub.appvia.io/v1beta/service-accounts/{namespace}/{name}",
+		"/api/v1beta/service-accounts/{namespace}/{name}",
 		ServiceAccountsNamespaceNameDelete,
 	},
 
 	Route{
 		"ServiceAccountsNamespaceNameGet",
 		strings.ToUpper("Get"),
-		"/api/hub.appvia.io/v1beta/service-accounts/{namespace}/{name}",
+		"/api/v1beta/service-accounts/{namespace}/{name}",
 		ServiceAccountsNamespaceNameGet,
 	},
 
 	Route{
 		"ServiceAccountsNamespaceNamePut",
 		strings.ToUpper("Put"),
-		"/api/hub.appvia.io/v1beta/service-accounts/{namespace}/{name}",
+		"/api/v1beta/service-accounts/{namespace}/{name}",
 		ServiceAccountsNamespaceNamePut,
 	},
 
 	Route{
 		"HealthzGet",
 		strings.ToUpper("Get"),
-		"/api/hub.appvia.io/v1beta/healthz",
+		"/api/v1beta/healthz",
 		HealthzGet,
 	},
 }
