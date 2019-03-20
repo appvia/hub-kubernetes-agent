@@ -54,7 +54,11 @@ func getClient(server, token, caCert string) (*kubernetes.Clientset, error) {
 }
 
 func NamespacesList(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+	token := r.Header.Get("X-Kube-Token")
+	server := r.Header.Get("X-Kube-API-URL")
+	caCert := r.Header.Get("X-Kube-CA")
+
+	clientset, err := getClient(server, token, caCert)
 
 	Namespaces, err := clientset.CoreV1().Namespaces().List(metav1.ListOptions{})
 
