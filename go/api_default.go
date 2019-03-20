@@ -12,6 +12,7 @@ package swagger
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -24,6 +25,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	rbac "k8s.io/api/rbac/v1"
 )
 
 var clientset *kubernetes.Clientset
@@ -113,7 +115,6 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	payload, err := json.MarshalJSON()
-
 	if err != nil {
 		log.Println(err)
 	}
@@ -164,6 +165,18 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	name := vars["name"]
+
+    decoder := json.NewDecoder(r.Body)
+	var s GlobalServiceAccount
+	decoder.Decode(&s)
+
+    if err != nil {
+        panic(err)
+    }
+
+	globalServiceAccountName := s.Name
+	log.Println(globalServiceAccountName)
+
 	namespace, err := clientset.CoreV1().Namespaces().Create(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -186,11 +199,44 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = namespace
 
+	subject := rbac.Subject{
+		Kind: "ServiceAccount",
+		APIGroup: "",
+		Name: globalServiceAccountName,
+		Namespace: "default",
+	}
+
+	var subjects []rbac.Subject
+
+	subjects = append(subjects, subject)
+
+	roleRef := rbac.RoleRef{
+		APIGroup: "rbac.authorization.k8s.io",
+		Kind: "ClusterRole",
+		Name: "cluster-admin",
+	}
+
+	roleBinding := rbac.RoleBinding{
+		Subjects: subjects,
+		RoleRef: roleRef,
+		ObjectMeta: metav1.ObjectMeta{
+			Name: globalServiceAccountName + "-cluster-admin-" + name,
+		},
+	}
+
+	roleBindingReponse, err := clientset.RbacV1().RoleBindings("default").Create(&roleBinding)
+	_ = roleBindingReponse
+
+	if errors.IsAlreadyExists(err) {
+		log.Printf("cluster-admin rolebinding for %s on namespace %s already exists", globalServiceAccountName, name)
+	} else if err != nil {
+		log.Printf("Newly created cluster-admin rolebinding for %s on namespace %s", globalServiceAccountName, name)
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 
 	payload, err := json.MarshalJSON()
-
 	if err != nil {
 		log.Println(err)
 	}

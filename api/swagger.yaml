@@ -44,6 +44,10 @@ responses:
     description: A collection namespaces found in the cluster
     schema:
       "$ref": "#/definitions/NamespaceList"
+  global-service-account:
+    description: The name of the global service account that will be used to grant access to all namespaces created
+    schema:
+      "$ref": "#/definitions/GlobalServiceAccount"
 
 parameters:
   name:
@@ -72,6 +76,13 @@ parameters:
     schema:
       "$ref": "#/definitions/ServiceAccount"
     required: true
+  global-service-account:
+    name: global-service-account
+    description: The definition of a global service account
+    in: body
+    schema:
+      "$ref": "#/definitions/GlobalServiceAccount"
+    required: true
   kube-token:
     name: X-Kube-Token
     description: A bearer authentication token used for requests to the Kubernetes API
@@ -97,6 +108,7 @@ paths:
       description: |
         Returns health and status information of the API daemon and
         related components such as the runtime.
+      security: []
       tags:
         - health
       responses:
@@ -301,7 +313,7 @@ definitions:
       - name
 
   ServiceAccount:
-    description: The resource definition for a service account
+    description: A service account
     type: object
     allOf:
       - "$ref": "#/definitions/Object"
@@ -322,3 +334,23 @@ definitions:
         items:
           "$ref": "#/definitions/ServiceAccount"
 
+  GlobalServiceAccount:
+    description: A global service account
+    type: object
+    allOf:
+      - "$ref": "#/definitions/Object"
+    properties:
+      spec:
+        "$ref": "#/definitions/GlobalServiceAccountSpec"
+    required:
+      - spec
+
+  GlobalServiceAccountSpec:
+    description: The resource specification of a global service account
+    type: object
+    properties:
+      name:
+        description: The name of the global service account
+        type: string
+    required:
+      - name
