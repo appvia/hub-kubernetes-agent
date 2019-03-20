@@ -14,6 +14,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	sw "github.com/appvia/hub-kubernetes-agent/go"
 )
@@ -22,23 +23,12 @@ func Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := r.Header.Get("X-Token")
 
-		if token == os.Getenv("AUTH_TOKEN") {
+		if strings.Contains(r.URL.Path, "healthz") == true {
+			next.ServeHTTP(w, r)
+		} else if token == os.Getenv("AUTH_TOKEN") {
 			log.Printf("Authenticated request")
-
-			kubeToken := r.Header.Get("X-Kube-Token")
-			server := r.Header.Get("X-Kube-API-URL")
-			caCert := r.Header.Get("X-Kube-CA")
-
-			if kubeToken == "" {
-				log.Printf("No X-Kube-Token header provided")
-				http.Error(w, "Forbidden", http.StatusForbidden)
-			}
-			if server == "" {
-				log.Printf("No X-Kube-API-URL header provided")
-				http.Error(w, "Forbidden", http.StatusForbidden)
-			}
-			if caCert == "" {
-				log.Printf("No X-Kube-CA header provided")
+			if r.Header.Get("X-Kube-API-URL") == "" || r.Header.Get("X-Kube-Token") == "" || r.Header.Get("X-Kube-CA") == "" {
+				log.Printf("Missing Kube header")
 				http.Error(w, "Forbidden", http.StatusForbidden)
 			} else {
 				next.ServeHTTP(w, r)
@@ -48,7 +38,6 @@ func Middleware(next http.Handler) http.Handler {
 		}
 	})
 }
-
 
 func main() {
 	log.Printf("Server started")

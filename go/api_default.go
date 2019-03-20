@@ -171,7 +171,9 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	})
 	json := simplejson.New()
 
-	if err != nil {
+	if errors.IsAlreadyExists(err) {
+		json.Set("name", name)
+	} else if err != nil {
 		log.Println(err)
 		json.Set("status", "error")
 	} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
@@ -337,15 +339,20 @@ func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
 			Name: name,
 		},
 	})
-	if err != nil {
-		log.Println(err)
-	}
 	_ = serviceAccount
+
+	json := simplejson.New()
+
+	if errors.IsAlreadyExists(err) {
+		json.Set("name", name)
+	} else if err != nil {
+		log.Println(err)
+	} else {
+		log.Printf("Creating service account: %v", name)
+		json.Set("name", name)
+	}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
-	log.Printf("Creating service account: %v", name)
-	json := simplejson.New()
-	json.Set("name", name)
 
 	payload, err := json.MarshalJSON()
 	if err != nil {

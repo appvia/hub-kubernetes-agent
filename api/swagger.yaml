@@ -72,7 +72,24 @@ parameters:
     schema:
       "$ref": "#/definitions/ServiceAccount"
     required: true
-
+  kube-token:
+    name: X-Kube-Token
+    description: A bearer authentication token used for requests to the Kubernetes API
+    in: header
+    type: string
+    required: true
+  kube-api-url:
+    name: X-Kube-API-URL
+    description: The URL of the Kubernetes API
+    in: header
+    type: string
+    required: true
+  kube-ca-cert:
+    name: X-Kube-CA
+    description: Base64 encoded CA certificate for requests to Kubernetes API
+    in: header
+    type: string
+    required: true
 paths:
   "/healthz":
     get:
@@ -89,6 +106,10 @@ paths:
           "$ref": "#/responses/apierror"
 
   "/service-accounts/{namespace}":
+    parameters:
+      - $ref: '#/parameters/kube-token'
+      - $ref: '#/parameters/kube-api-url'
+      - $ref: '#/parameters/kube-ca-cert'
     get:
       summary: Retrieves a list of service accounts from within the specified namespace
       description: |
@@ -102,6 +123,10 @@ paths:
           "$ref": "#/responses/apierror"
 
   "/service-accounts/{namespace}/{name}":
+    parameters:
+      - $ref: '#/parameters/kube-token'
+      - $ref: '#/parameters/kube-api-url'
+      - $ref: '#/parameters/kube-ca-cert'
     get:
       summary: Retrieves a service account
       description: |
@@ -145,6 +170,10 @@ paths:
           "$ref": "#/responses/apierror"
 
   "/namespaces":
+    parameters:
+      - $ref: '#/parameters/kube-token'
+      - $ref: '#/parameters/kube-api-url'
+      - $ref: '#/parameters/kube-ca-cert'
     get:
       summary: Lists all namespaces
       description: |
@@ -156,6 +185,10 @@ paths:
           "$ref": "#/responses/apierror"
 
   "/namespaces/{name}":
+    parameters:
+      - $ref: '#/parameters/kube-token'
+      - $ref: '#/parameters/kube-api-url'
+      - $ref: '#/parameters/kube-ca-cert'
     get:
       summary: Retrieves a namespace
       description: |
