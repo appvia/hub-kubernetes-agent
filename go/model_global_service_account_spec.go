@@ -14,7 +14,7 @@ package swagger
 type GlobalServiceAccountSpec struct {
 
 	// The name of the global service account
-	Name string `json:"name"`
+	Name string `json:"global_service_account_name"`
 
 	// The token associated with the global service account
 	Token string `json:"token,omitempty"`

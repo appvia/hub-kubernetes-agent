@@ -14,7 +14,7 @@ package swagger
 type GlobalServiceAccount struct {
 
 	// A globally unique human readible resource name
-	Name string `json:"name"`
+	Name string `json:"global_service_account_name"`
 
 	// A cryptographic signature used to verify the request payload
 	Signature string `json:"signature,omitempty"`
