@@ -14,6 +14,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	sw "github.com/appvia/hub-kubernetes-agent/go"
 )
@@ -22,9 +23,16 @@ func Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := r.Header.Get("X-Token")
 
-		if token == os.Getenv("AUTH_TOKEN") {
-			log.Printf("Authenticated request")
+		if strings.Contains(r.URL.Path, "healthz") == true {
 			next.ServeHTTP(w, r)
+		} else if token == os.Getenv("AUTH_TOKEN") {
+			log.Printf("Authenticated request")
+			if r.Header.Get("X-Kube-API-URL") == "" || r.Header.Get("X-Kube-Token") == "" || r.Header.Get("X-Kube-CA") == "" {
+				log.Printf("Missing Kube header")
+				http.Error(w, "Forbidden", http.StatusForbidden)
+			} else {
+				next.ServeHTTP(w, r)
+			}
 		} else {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 		}

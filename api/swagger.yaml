@@ -15,7 +15,7 @@ securityDefinitions:
     type: apiKey
     in: header
     name: x-token
-basePath: "/api/hub.appvia.io/v1beta"
+basePath: "/api/v1beta"
 consumes:
   - application/json
 produces:
@@ -44,6 +44,10 @@ responses:
     description: A collection namespaces found in the cluster
     schema:
       "$ref": "#/definitions/NamespaceList"
+  global-service-account:
+    description: The name of the global service account that will be used to grant access to all namespaces created
+    schema:
+      "$ref": "#/definitions/GlobalServiceAccount"
 
 parameters:
   name:
@@ -72,7 +76,31 @@ parameters:
     schema:
       "$ref": "#/definitions/ServiceAccount"
     required: true
-
+  global-service-account:
+    name: global-service-account
+    description: The definition of a global service account
+    in: body
+    schema:
+      "$ref": "#/definitions/GlobalServiceAccount"
+    required: true
+  kube-token:
+    name: X-Kube-Token
+    description: A bearer authentication token used for requests to the Kubernetes API
+    in: header
+    type: string
+    required: true
+  kube-api-url:
+    name: X-Kube-API-URL
+    description: The URL of the Kubernetes API
+    in: header
+    type: string
+    required: true
+  kube-ca-cert:
+    name: X-Kube-CA
+    description: Base64 encoded CA certificate for requests to Kubernetes API
+    in: header
+    type: string
+    required: true
 paths:
   "/healthz":
     get:
@@ -80,6 +108,7 @@ paths:
       description: |
         Returns health and status information of the API daemon and
         related components such as the runtime.
+      security: []
       tags:
         - health
       responses:
@@ -89,6 +118,10 @@ paths:
           "$ref": "#/responses/apierror"
 
   "/service-accounts/{namespace}":
+    parameters:
+      - $ref: "#/parameters/kube-token"
+      - $ref: "#/parameters/kube-api-url"
+      - $ref: "#/parameters/kube-ca-cert"
     get:
       summary: Retrieves a list of service accounts from within the specified namespace
       description: |
@@ -102,6 +135,10 @@ paths:
           "$ref": "#/responses/apierror"
 
   "/service-accounts/{namespace}/{name}":
+    parameters:
+      - $ref: "#/parameters/kube-token"
+      - $ref: "#/parameters/kube-api-url"
+      - $ref: "#/parameters/kube-ca-cert"
     get:
       summary: Retrieves a service account
       description: |
@@ -117,7 +154,7 @@ paths:
         default:
           "$ref": "#/responses/apierror"
 
-    post:
+    put:
       summary: Creates a service account
       description: |
         Used to create a service account within a specified namespace
@@ -145,6 +182,10 @@ paths:
           "$ref": "#/responses/apierror"
 
   "/namespaces":
+    parameters:
+      - $ref: "#/parameters/kube-token"
+      - $ref: "#/parameters/kube-api-url"
+      - $ref: "#/parameters/kube-ca-cert"
     get:
       summary: Lists all namespaces
       description: |
@@ -156,6 +197,10 @@ paths:
           "$ref": "#/responses/apierror"
 
   "/namespaces/{name}":
+    parameters:
+      - $ref: "#/parameters/kube-token"
+      - $ref: "#/parameters/kube-api-url"
+      - $ref: "#/parameters/kube-ca-cert"
     get:
       summary: Retrieves a namespace
       description: |
@@ -169,11 +214,12 @@ paths:
         default:
           "$ref": "#/responses/apierror"
 
-    post:
+    put:
       summary: Create a new namespace
       description: |
         Used to create a new namespace
       parameters:
+        - "$ref": "#/parameters/global-service-account"
         - "$ref": "#/parameters/namespace-definition"
         - "$ref": "#/parameters/name"
       responses:
@@ -268,7 +314,7 @@ definitions:
       - name
 
   ServiceAccount:
-    description: The resource definition for a service account
+    description: A service account
     type: object
     allOf:
       - "$ref": "#/definitions/Object"
@@ -289,3 +335,23 @@ definitions:
         items:
           "$ref": "#/definitions/ServiceAccount"
 
+  GlobalServiceAccount:
+    description: A global service account
+    type: object
+    allOf:
+      - "$ref": "#/definitions/Object"
+    properties:
+      spec:
+        "$ref": "#/definitions/GlobalServiceAccountSpec"
+    required:
+      - spec
+
+  GlobalServiceAccountSpec:
+    description: The resource specification of a global service account
+    type: object
+    properties:
+      name:
+        description: The name of the global service account
+        type: string
+    required:
+      - name

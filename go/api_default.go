@@ -11,43 +11,53 @@
 package swagger
 
 import (
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/bitly/go-simplejson"
 	"github.com/gorilla/mux"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	rbac "k8s.io/api/rbac/v1"
 )
 
 var clientset *kubernetes.Clientset
 
-func getClient(pathToCfg string) (*kubernetes.Clientset, error) {
-	var config *rest.Config
-	var err error
-	if pathToCfg == "" {
-		log.Printf("Using in cluster config")
-		config, err = rest.InClusterConfig()
-	} else {
-		log.Printf("Using out of cluster config")
-		config, err = clientcmd.BuildConfigFromFlags("", pathToCfg)
+func getClient(server, token, caCert string) (*kubernetes.Clientset, error) {
+	decodedCert, err := base64.StdEncoding.DecodeString(caCert)
+
+	if err != nil {
+		fmt.Println("decode error:", err)
+		return nil, err
 	}
+
+	config := &rest.Config{
+		Host:            server,
+		BearerToken:     token,
+		TLSClientConfig: rest.TLSClientConfig{CAData: decodedCert},
+	}
+
+	client, err := kubernetes.NewForConfig(config)
+	_ = client
+
 	if err != nil {
 		return nil, err
 	}
+
 	return kubernetes.NewForConfig(config)
 }
 
 func NamespacesList(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
-	Namespaces, err := clientset.CoreV1().Namespaces().List(metav1.ListOptions{})
+	namespaces, err := clientset.CoreV1().Namespaces().List(metav1.ListOptions{})
 
 	json := simplejson.New()
 
@@ -62,12 +72,12 @@ func NamespacesList(w http.ResponseWriter, r *http.Request) {
 		json.Set("status", "error")
 		panic(err.Error())
 	} else {
-		var namespaces []string
+		var namespaceList []string
 
-		for _, namespace := range Namespaces.Items {
-			namespaces = append(namespaces, namespace.Name)
+		for _, namespace := range namespaces.Items {
+			namespaceList = append(namespaceList, namespace.Name)
 		}
-		json.Set("namespaces", namespaces)
+		json.Set("namespaces", namespaceList)
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -81,7 +91,7 @@ func NamespacesList(w http.ResponseWriter, r *http.Request) {
 }
 
 func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	vars := mux.Vars(r)
 	name := vars["name"]
@@ -105,7 +115,6 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	payload, err := json.MarshalJSON()
-
 	if err != nil {
 		log.Println(err)
 	}
@@ -113,7 +122,7 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	vars := mux.Vars(r)
 	name := vars["name"]
@@ -151,11 +160,23 @@ func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
 	w.Write(payload)
 }
 
-func NamespacesNamePost(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	vars := mux.Vars(r)
 	name := vars["name"]
+
+    decoder := json.NewDecoder(r.Body)
+	var s GlobalServiceAccount
+	decoder.Decode(&s)
+
+    if err != nil {
+        panic(err)
+    }
+
+	globalServiceAccountName := s.Name
+	log.Println(globalServiceAccountName)
+
 	namespace, err := clientset.CoreV1().Namespaces().Create(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -163,7 +184,9 @@ func NamespacesNamePost(w http.ResponseWriter, r *http.Request) {
 	})
 	json := simplejson.New()
 
-	if err != nil {
+	if errors.IsAlreadyExists(err) {
+		json.Set("name", name)
+	} else if err != nil {
 		log.Println(err)
 		json.Set("status", "error")
 	} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
@@ -176,11 +199,44 @@ func NamespacesNamePost(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = namespace
 
+	subject := rbac.Subject{
+		Kind: "ServiceAccount",
+		APIGroup: "",
+		Name: globalServiceAccountName,
+		Namespace: "default",
+	}
+
+	var subjects []rbac.Subject
+
+	subjects = append(subjects, subject)
+
+	roleRef := rbac.RoleRef{
+		APIGroup: "rbac.authorization.k8s.io",
+		Kind: "ClusterRole",
+		Name: "cluster-admin",
+	}
+
+	roleBinding := rbac.RoleBinding{
+		Subjects: subjects,
+		RoleRef: roleRef,
+		ObjectMeta: metav1.ObjectMeta{
+			Name: globalServiceAccountName + "-cluster-admin-" + name,
+		},
+	}
+
+	roleBindingReponse, err := clientset.RbacV1().RoleBindings("default").Create(&roleBinding)
+	_ = roleBindingReponse
+
+	if errors.IsAlreadyExists(err) {
+		log.Printf("cluster-admin rolebinding for %s on namespace %s already exists", globalServiceAccountName, name)
+	} else if err != nil {
+		log.Printf("Newly created cluster-admin rolebinding for %s on namespace %s", globalServiceAccountName, name)
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 
 	payload, err := json.MarshalJSON()
-
 	if err != nil {
 		log.Println(err)
 	}
@@ -188,7 +244,7 @@ func NamespacesNamePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	vars := mux.Vars(r)
 	namespace := vars["namespace"]
@@ -232,7 +288,7 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func ServiceAccountsNamespaceNameDelete(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	vars := mux.Vars(r)
 	name := vars["name"]
@@ -272,7 +328,7 @@ func ServiceAccountsNamespaceNameDelete(w http.ResponseWriter, r *http.Request) 
 }
 
 func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	vars := mux.Vars(r)
 	name := vars["name"]
@@ -300,6 +356,11 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 	} else {
 		json.Set("name", name)
 		log.Printf("Found service account %s\n", name)
+		secret, err := clientset.CoreV1().Secrets(namespace).Get(serviceAccount.Secrets[0].Name, metav1.GetOptions{})
+		if err != nil {
+			log.Println(err)
+		}
+		json.Set("token", string(secret.Data["token"]))
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -312,8 +373,8 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 	w.Write(payload)
 }
 
-func ServiceAccountsNamespaceNamePost(w http.ResponseWriter, r *http.Request) {
-	clientset, err := getClient(os.Getenv("KUBECONFIG"))
+func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	vars := mux.Vars(r)
 	name := vars["name"]
@@ -324,15 +385,20 @@ func ServiceAccountsNamespaceNamePost(w http.ResponseWriter, r *http.Request) {
 			Name: name,
 		},
 	})
-	if err != nil {
-		log.Println(err)
-	}
 	_ = serviceAccount
+
+	json := simplejson.New()
+
+	if errors.IsAlreadyExists(err) {
+		json.Set("name", name)
+	} else if err != nil {
+		log.Println(err)
+	} else {
+		log.Printf("Creating service account: %v", name)
+		json.Set("name", name)
+	}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
-	log.Printf("Creating service account: %v", name)
-	json := simplejson.New()
-	json.Set("name", name)
 
 	payload, err := json.MarshalJSON()
 	if err != nil {
