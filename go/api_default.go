@@ -22,9 +22,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	corev1 "k8s.io/api/core/v1"
-	rbac "k8s.io/api/rbac/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/client-go/pkg/api/v1"
+	rbacv1alpha1 "k8s.io/client-go/pkg/apis/rbac/v1alpha1"
 )
 
 var clientset *kubernetes.Clientset
@@ -86,7 +85,7 @@ func NamespacesList(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	namespaces, err := clientset.CoreV1().Namespaces().List(metav1.ListOptions{})
+	namespaces, err := clientset.CoreV1().Namespaces().List(v1.ListOptions{})
 
 	if err != nil {
 		handleInternalServerError(w, "error listing namespaces", err)
@@ -108,7 +107,7 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	name := vars["name"]
-	namespace, err := clientset.CoreV1().Namespaces().Get(name, metav1.GetOptions{})
+	namespace, err := clientset.CoreV1().Namespaces().Get(name)
 	json := simplejson.New()
 
 	if err != nil {
@@ -146,11 +145,7 @@ func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
 
 	json := simplejson.New()
 
-	deletePolicy := metav1.DeletePropagationForeground
-
-	if err := clientset.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{
-		PropagationPolicy: &deletePolicy,
-	}); errors.IsNotFound(err) || err == nil {
+	if err := clientset.CoreV1().Namespaces().Delete(name, &v1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
 		json.Set("name", name)
 		payload, err := json.MarshalJSON()
 		if err != nil {
@@ -179,8 +174,8 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 
 	globalServiceAccountName := s.Name
 
-	namespace, err := clientset.CoreV1().Namespaces().Create(&corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
+	namespace, err := clientset.CoreV1().Namespaces().Create(&v1.Namespace{
+		ObjectMeta: v1.ObjectMeta{
 			Name: name,
 		},
 	})
@@ -190,32 +185,31 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 
 	if errors.IsAlreadyExists(err) || err == nil {
 
-		subject := rbac.Subject{
+		subject := rbacv1alpha1.Subject{
 			Kind:      "ServiceAccount",
-			APIGroup:  "",
 			Name:      globalServiceAccountName,
 			Namespace: "default",
 		}
 
-		var subjects []rbac.Subject
+		var subjects []rbacv1alpha1.Subject
 
 		subjects = append(subjects, subject)
 
-		roleRef := rbac.RoleRef{
+		roleRef := rbacv1alpha1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
 			Name:     "cluster-admin",
 		}
 
-		roleBinding := rbac.RoleBinding{
+		roleBinding := rbacv1alpha1.RoleBinding{
 			Subjects: subjects,
 			RoleRef:  roleRef,
-			ObjectMeta: metav1.ObjectMeta{
+			ObjectMeta: v1.ObjectMeta{
 				Name: globalServiceAccountName + "-cluster-admin-" + name,
 			},
 		}
 
-		roleBindingReponse, err := clientset.RbacV1().RoleBindings(name).Create(&roleBinding)
+		roleBindingReponse, err := clientset.Rbac().RoleBindings(name).Create(&roleBinding)
 		_ = roleBindingReponse
 
 		if errors.IsAlreadyExists(err) || err == nil {
@@ -244,7 +238,7 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 	if namespace == "" {
 		namespace = "default"
 	}
-	namespaceCheck, err := clientset.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
+	namespaceCheck, err := clientset.CoreV1().Namespaces().Get(namespace)
 	_ = namespaceCheck
 
 	if errors.IsNotFound(err) {
@@ -253,7 +247,7 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serviceAccounts, err := clientset.CoreV1().ServiceAccounts(namespace).List(metav1.ListOptions{})
+	serviceAccounts, err := clientset.CoreV1().ServiceAccounts(namespace).List(v1.ListOptions{})
 	_ = serviceAccounts
 
 	json := simplejson.New()
@@ -294,10 +288,7 @@ func ServiceAccountsNamespaceNameDelete(w http.ResponseWriter, r *http.Request) 
 	}
 	json := simplejson.New()
 
-	deletePolicy := metav1.DeletePropagationForeground
-	if err := clientset.CoreV1().ServiceAccounts(namespace).Delete(name, &metav1.DeleteOptions{
-		PropagationPolicy: &deletePolicy,
-	}); errors.IsNotFound(err) || err == nil {
+	if err := clientset.CoreV1().ServiceAccounts(namespace).Delete(name, &v1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
 		json.Set("name", name)
 		payload, err := json.MarshalJSON()
 		if err != nil {
@@ -321,7 +312,7 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 		namespace = "default"
 	}
 
-	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name, metav1.GetOptions{})
+	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name)
 	_ = serviceAccount
 
 	json := simplejson.New()
@@ -333,7 +324,7 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 		handleInternalServerError(w, "error getting service account", err)
 	} else {
 		json.Set("name", name)
-		secret, err := clientset.CoreV1().Secrets(namespace).Get(serviceAccount.Secrets[0].Name, metav1.GetOptions{})
+		secret, err := clientset.CoreV1().Secrets(namespace).Get(serviceAccount.Secrets[0].Name)
 		if err != nil {
 			log.Printf("Error getting service account token for %s\n", name)
 			log.Println(err)
@@ -356,8 +347,8 @@ func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
 	name := vars["name"]
 	namespace := vars["namespace"]
 
-	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Create(&corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
+	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Create(&v1.ServiceAccount{
+		ObjectMeta: v1.ObjectMeta{
 			Name: name,
 		},
 	})
@@ -370,9 +361,9 @@ func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println(err)
 		}
-		serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name, metav1.GetOptions{})
+		serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name)
 		_ = serviceAccount
-		secret, err := clientset.CoreV1().Secrets(namespace).Get(serviceAccount.Secrets[0].Name, metav1.GetOptions{})
+		secret, err := clientset.CoreV1().Secrets(namespace).Get(serviceAccount.Secrets[0].Name)
 		if err != nil {
 			log.Printf("Error getting service account token for %s\n", name)
 			log.Println(err)
