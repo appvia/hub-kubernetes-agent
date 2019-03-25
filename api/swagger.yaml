@@ -292,8 +292,6 @@ definitions:
   NamespaceList:
     description: A list of namespaces found
     type: object
-    allOf:
-      - "$ref": "#/definitions/Object"
     properties:
       items:
         type: array
@@ -327,8 +325,6 @@ definitions:
   ServiceAccountList:
     description: A list of service accounts
     type: object
-    allOf:
-      - "$ref": "#/definitions/Object"
     properties:
       items:
         type: array

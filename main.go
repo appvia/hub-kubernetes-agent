@@ -40,6 +40,9 @@ func Middleware(next http.Handler) http.Handler {
 }
 
 func main() {
+	if os.Getenv("AUTH_TOKEN") == "" {
+		log.Fatalf("No AUTH_TOKEN supplied")
+	}
 	log.Printf("Server started")
 
 	router := sw.NewRouter()
