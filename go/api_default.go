@@ -18,10 +18,10 @@ import (
 
 	"github.com/bitly/go-simplejson"
 	"github.com/gorilla/mux"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	errors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/client-go/pkg/api/v1"
 	rbacv1alpha1 "k8s.io/client-go/pkg/apis/rbac/v1alpha1"
 )
@@ -59,7 +59,7 @@ func handleSuccess(w http.ResponseWriter, payload []byte) {
 }
 
 func handleInternalServerError(w http.ResponseWriter, reason string, err error) {
-	log.Println(w, err.Error())
+	log.Println(err.Error())
 	json := simplejson.New()
 	json.Set("reason", reason)
 	json.Set("detail", err)
@@ -69,7 +69,7 @@ func handleInternalServerError(w http.ResponseWriter, reason string, err error) 
 }
 
 func handleNotFoundError(w http.ResponseWriter, err error) {
-	log.Println(w, err.Error())
+	log.Println(err.Error())
 	json := simplejson.New()
 	json.Set("reason", "not found")
 	json.Set("detail", err)
@@ -108,7 +108,7 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	name := vars["name"]
 	namespace, err := clientset.CoreV1().Namespaces().Get(name)
-	json := simplejson.New()
+	_ = namespace
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -117,19 +117,14 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 			handleInternalServerError(w, "Error getting namespace", err)
 		}
 	} else {
+		json := simplejson.New()
 		json.Set("name", name)
 		log.Printf("Found namespace: %s\n", name)
-
-		_ = namespace
-
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		w.WriteHeader(http.StatusOK)
-
 		payload, err := json.MarshalJSON()
 		if err != nil {
 			log.Println(err)
 		}
-		w.Write(payload)
+		handleSuccess(w, payload)
 	}
 }
 
@@ -184,14 +179,6 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	_ = namespace
-
-	log.Println(err.Error())
-
-	if errors.IsAlreadyExists(err) {
-		log.Printf("meow")
-	} else {
-		log.Printf("woof")
-	}
 
 	if errors.IsAlreadyExists(err) || err == nil {
 		log.Printf("Namespace created")
