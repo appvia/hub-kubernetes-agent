@@ -167,27 +167,42 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	name := vars["name"]
+	_ = name
 
+	var n NamespaceSpec
 	decoder := json.NewDecoder(r.Body)
-	var s GlobalServiceAccount
-	decoder.Decode(&s)
+	decoder.Decode(&n)
 
-	globalServiceAccountName := s.Name
+	namespaceName := n.Name
+	namespaceServiceAccounts := n.ServiceAccounts
+
+	log.Printf("Attempting to create namespace: %s", namespaceName)
 
 	namespace, err := clientset.CoreV1().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: v1.ObjectMeta{
-			Name: name,
+			Name: namespaceName,
 		},
 	})
 	_ = namespace
 
-	json := simplejson.New()
+	log.Println(err.Error())
+
+	if errors.IsAlreadyExists(err) {
+		log.Printf("meow")
+	} else {
+		log.Printf("woof")
+	}
 
 	if errors.IsAlreadyExists(err) || err == nil {
+		log.Printf("Namespace created")
+	} else if err != nil {
+		handleInternalServerError(w, "error creating namespace", err)
+	}
 
+	for _, sa := range namespaceServiceAccounts {
 		subject := rbacv1alpha1.Subject{
 			Kind:      "ServiceAccount",
-			Name:      globalServiceAccountName,
+			Name:      sa,
 			Namespace: "default",
 		}
 
@@ -205,28 +220,24 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 			Subjects: subjects,
 			RoleRef:  roleRef,
 			ObjectMeta: v1.ObjectMeta{
-				Name: globalServiceAccountName + "-cluster-admin-" + name,
+				Name: sa + "-cluster-admin-" + namespaceName,
 			},
 		}
 
-		roleBindingReponse, err := clientset.Rbac().RoleBindings(name).Create(&roleBinding)
+		roleBindingReponse, err := clientset.Rbac().RoleBindings(sa).Create(&roleBinding)
 		_ = roleBindingReponse
 
 		if errors.IsAlreadyExists(err) || err == nil {
-			json.Set("name", name)
-			payload, err := json.MarshalJSON()
-			if err != nil {
-				log.Println(err)
-			}
-			log.Printf("Created namespace: %s\n", name)
-			log.Printf("Created role binding: %s\n", globalServiceAccountName+"-cluster-admin-"+name)
-			handleSuccess(w, payload)
+			log.Printf("Created role binding: %s-cluster-admin-%s", sa, namespaceName)
 		} else {
+			log.Printf("Failed to create role binding: %s-cluster-admin-%s", sa, namespaceName)
 			handleInternalServerError(w, "error creating rolebinding for namespace", err)
 		}
-	} else {
-		handleInternalServerError(w, "error creating namespace", err)
 	}
+	json := simplejson.New()
+	json.Set("name", namespaceName)
+	payload, err := json.MarshalJSON()
+	handleSuccess(w, payload)
 }
 
 func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {

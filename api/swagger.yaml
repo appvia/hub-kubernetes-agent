@@ -275,8 +275,12 @@ definitions:
       name:
         description: The name of the namespace
         type: string
+      spec:
+        description: The name of the namespace
+        type: string
     required:
       - name
+      - spec
 
   Namespace:
     description: The resource definition for a namespace in the cluster
@@ -308,8 +312,11 @@ definitions:
       token:
         description: The token associated with the service account
         type: string
+      spec:
+        "$ref": "#/definitions/NamespaceSpec"
     required:
       - name
+      - spec
 
   ServiceAccount:
     description: A service account
