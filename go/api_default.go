@@ -11,17 +11,18 @@
 package swagger
 
 import (
-	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/bitly/go-simplejson"
 	"github.com/gorilla/mux"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	errors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/pkg/api/errors"
 	v1 "k8s.io/client-go/pkg/api/v1"
 	rbacv1alpha1 "k8s.io/client-go/pkg/apis/rbac/v1alpha1"
 )
@@ -29,18 +30,30 @@ import (
 var clientset *kubernetes.Clientset
 
 func getClient(server, token, caCert string) (*kubernetes.Clientset, error) {
-	decodedCert, err := base64.StdEncoding.DecodeString(caCert)
+	/*
+		decodedCert, err := base64.StdEncoding.DecodeString(caCert)
 
-	if err != nil {
-		log.Println("decode error:", err)
-		return nil, err
-	}
+		if err != nil {
+			log.Println("decode error:", err)
+			return nil, err
+		}
+	*/
 
 	config := &rest.Config{
-		Host:            server,
-		BearerToken:     token,
-		TLSClientConfig: rest.TLSClientConfig{CAData: decodedCert},
+		Host:     "https://kube-api-test.testing.acp.homeoffice.gov.uk",
+		Username: "admin",
+		Password: os.Getenv("KUBE_PASSWORD"),
+		Insecure: true,
 	}
+
+	/*
+
+		config := &rest.Config{
+			Host:            server,
+			BearerToken:     token,
+			TLSClientConfig: rest.TLSClientConfig{CAData: decodedCert},
+		}
+	*/
 
 	client, err := kubernetes.NewForConfig(config)
 	_ = client
@@ -107,25 +120,30 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	name := vars["name"]
-	namespace, err := clientset.CoreV1().Namespaces().Get(name)
-	_ = namespace
 
+	_, err = clientset.CoreV1().Namespaces().Get(name)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		fmt.Println("WE HAVE AN ERROR")
+
+		switch errors.IsNotFound(err) {
+		case true:
+			fmt.Println("NOT WHAT I EXPECTED")
 			handleNotFoundError(w, err)
-		} else {
+		default:
+			fmt.Println("IS WHAT I EXPECTED")
 			handleInternalServerError(w, "Error getting namespace", err)
 		}
-	} else {
-		json := simplejson.New()
-		json.Set("name", name)
-		log.Printf("Found namespace: %s\n", name)
-		payload, err := json.MarshalJSON()
-		if err != nil {
-			log.Println(err)
-		}
-		handleSuccess(w, payload)
+		return
 	}
+
+	json := simplejson.New()
+	json.Set("name", name)
+	log.Printf("Found namespace: %s\n", name)
+	payload, err := json.MarshalJSON()
+	if err != nil {
+		log.Println(err)
+	}
+	handleSuccess(w, payload)
 }
 
 func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
@@ -173,17 +191,19 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Attempting to create namespace: %s", namespaceName)
 
-	namespace, err := clientset.CoreV1().Namespaces().Create(&v1.Namespace{
+	_, err = clientset.CoreV1().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: v1.ObjectMeta{
 			Name: namespaceName,
 		},
 	})
-	_ = namespace
+	if err != nil {
+		fmt.Printf("THE ERROR %s\n", err.Error())
 
-	if errors.IsAlreadyExists(err) || err == nil {
-		log.Printf("Namespace created")
-	} else if err != nil {
-		handleInternalServerError(w, "error creating namespace", err)
+		if !errors.IsAlreadyExists(err) {
+			fmt.Println("NAUGHTY")
+			handleInternalServerError(w, "error creating namespace", err)
+			return
+		}
 	}
 
 	for _, sa := range namespaceServiceAccounts {

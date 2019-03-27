@@ -40,13 +40,15 @@ func Middleware(next http.Handler) http.Handler {
 }
 
 func main() {
-	if os.Getenv("AUTH_TOKEN") == "" {
-		log.Fatalf("No AUTH_TOKEN supplied")
-	}
+	/*
+		if os.Getenv("AUTH_TOKEN") == "" {
+			log.Fatalf("No AUTH_TOKEN supplied")
+		}
+	*/
 	log.Printf("Server started")
 
 	router := sw.NewRouter()
-	router.Use(Middleware)
+	//router.Use(Middleware)
 
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
