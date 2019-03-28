@@ -34,10 +34,6 @@
   version = "1.7.0"
 
 [[constraint]]
-  branch = "master"
-  name = "k8s.io/apimachinery"
-
-[[constraint]]
   name = "k8s.io/client-go"
   version = "2.0.0"
 

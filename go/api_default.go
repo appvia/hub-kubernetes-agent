@@ -18,9 +18,9 @@ import (
 
 	"github.com/bitly/go-simplejson"
 	"github.com/gorilla/mux"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/pkg/api/errors"
 
 	v1 "k8s.io/client-go/pkg/api/v1"
 	rbacv1alpha1 "k8s.io/client-go/pkg/apis/rbac/v1alpha1"
@@ -59,7 +59,7 @@ func handleSuccess(w http.ResponseWriter, payload []byte) {
 }
 
 func handleInternalServerError(w http.ResponseWriter, reason string, err error) {
-	log.Println(w, err.Error())
+	log.Println(err.Error())
 	json := simplejson.New()
 	json.Set("reason", reason)
 	json.Set("detail", err)
@@ -69,7 +69,7 @@ func handleInternalServerError(w http.ResponseWriter, reason string, err error) 
 }
 
 func handleNotFoundError(w http.ResponseWriter, err error) {
-	log.Println(w, err.Error())
+	log.Println(err.Error())
 	json := simplejson.New()
 	json.Set("reason", "not found")
 	json.Set("detail", err)
@@ -108,7 +108,7 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	name := vars["name"]
 	namespace, err := clientset.CoreV1().Namespaces().Get(name)
-	json := simplejson.New()
+	_ = namespace
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -117,19 +117,14 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 			handleInternalServerError(w, "Error getting namespace", err)
 		}
 	} else {
+		json := simplejson.New()
 		json.Set("name", name)
 		log.Printf("Found namespace: %s\n", name)
-
-		_ = namespace
-
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		w.WriteHeader(http.StatusOK)
-
 		payload, err := json.MarshalJSON()
 		if err != nil {
 			log.Println(err)
 		}
-		w.Write(payload)
+		handleSuccess(w, payload)
 	}
 }
 
@@ -167,27 +162,34 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	name := vars["name"]
+	_ = name
 
+	var n NamespaceSpec
 	decoder := json.NewDecoder(r.Body)
-	var s GlobalServiceAccount
-	decoder.Decode(&s)
+	decoder.Decode(&n)
 
-	globalServiceAccountName := s.Name
+	namespaceName := n.Name
+	namespaceServiceAccounts := n.ServiceAccounts
+
+	log.Printf("Attempting to create namespace: %s", namespaceName)
 
 	namespace, err := clientset.CoreV1().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: v1.ObjectMeta{
-			Name: name,
+			Name: namespaceName,
 		},
 	})
 	_ = namespace
 
-	json := simplejson.New()
-
 	if errors.IsAlreadyExists(err) || err == nil {
+		log.Printf("Namespace created")
+	} else if err != nil {
+		handleInternalServerError(w, "error creating namespace", err)
+	}
 
+	for _, sa := range namespaceServiceAccounts {
 		subject := rbacv1alpha1.Subject{
 			Kind:      "ServiceAccount",
-			Name:      globalServiceAccountName,
+			Name:      sa,
 			Namespace: "default",
 		}
 
@@ -205,28 +207,24 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 			Subjects: subjects,
 			RoleRef:  roleRef,
 			ObjectMeta: v1.ObjectMeta{
-				Name: globalServiceAccountName + "-cluster-admin-" + name,
+				Name: sa + "-cluster-admin-" + namespaceName,
 			},
 		}
 
-		roleBindingReponse, err := clientset.Rbac().RoleBindings(name).Create(&roleBinding)
+		roleBindingReponse, err := clientset.Rbac().RoleBindings(sa).Create(&roleBinding)
 		_ = roleBindingReponse
 
 		if errors.IsAlreadyExists(err) || err == nil {
-			json.Set("name", name)
-			payload, err := json.MarshalJSON()
-			if err != nil {
-				log.Println(err)
-			}
-			log.Printf("Created namespace: %s\n", name)
-			log.Printf("Created role binding: %s\n", globalServiceAccountName+"-cluster-admin-"+name)
-			handleSuccess(w, payload)
+			log.Printf("Created role binding: %s-cluster-admin-%s", sa, namespaceName)
 		} else {
+			log.Printf("Failed to create role binding: %s-cluster-admin-%s", sa, namespaceName)
 			handleInternalServerError(w, "error creating rolebinding for namespace", err)
 		}
-	} else {
-		handleInternalServerError(w, "error creating namespace", err)
 	}
+	json := simplejson.New()
+	json.Set("name", namespaceName)
+	payload, err := json.MarshalJSON()
+	handleSuccess(w, payload)
 }
 
 func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
