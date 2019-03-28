@@ -17,7 +17,7 @@ type Namespace struct {
 	Name string `json:"name"`
 
 	// A spec for the namespace
-	NamespaceSpec *NamespaceSpec `json:"spec"`
+	NamespaceSpec *NamespaceSpec `json:"spec,omitempty"`
 
 	// A cryptographic signature used to verify the request payload
 	Signature string `json:"signature,omitempty"`

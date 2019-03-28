@@ -17,7 +17,7 @@ type ServiceAccount struct {
 	Name string `json:"name"`
 
 	// A spec for the service account
-	ServiceAccountSpec *ServiceAccountSpec `json:"spec"`
+	ServiceAccountSpec *ServiceAccountSpec `json:"spec,omitempty"`
 
 	// A cryptographic signature used to verify the request payload
 	Signature string `json:"signature,omitempty"`
