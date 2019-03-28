@@ -20,8 +20,8 @@ import (
 	"github.com/gorilla/mux"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/pkg/api/errors"
 
-	errors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/client-go/pkg/api/v1"
 	rbacv1alpha1 "k8s.io/client-go/pkg/apis/rbac/v1alpha1"
 )

@@ -6,8 +6,8 @@
   name = "cloud.google.com/go"
   packages = ["compute/metadata"]
   pruneopts = "UT"
-  revision = "2fa99f4c25c422525316dcb1fd3d5b94e1944cfd"
-  version = "v0.37.1"
+  revision = "458e1f376a2b44413160b5d301183b65debaa3f6"
+  version = "v0.37.2"
 
 [[projects]]
   digest = "1:a2682518d905d662d984ef9959984ef87cecb777d379bfa9d9fe40e78069b3e4"
@@ -133,15 +133,14 @@
   version = "v0.19.0"
 
 [[projects]]
-  digest = "1:b7a8552c62868d867795b63eaf4f45d3e92d36db82b428e680b9c95a8c33e5b1"
+  digest = "1:dfd5a02af6e5ccc2974549f63aa3c432c1da98d47c2abf0e2bf8a52bc15e64e2"
   name = "github.com/gogo/protobuf"
   packages = [
     "proto",
     "sortkeys",
   ]
   pruneopts = "UT"
-  revision = "342cbe0a04158f6dcb03ca0079991a51a4248c02"
-  version = "v0.5"
+  revision = "e18d7aa8f8c624c915db340349aad4c49b10d173"
 
 [[projects]]
   digest = "1:2edd2416f89b4e841df0e4a78802ce14d2bc7ad79eba1a45986e39f0f8cb7d87"
@@ -159,12 +158,11 @@
   version = "v1.3.1"
 
 [[projects]]
-  branch = "master"
-  digest = "1:3ee90c0d94da31b442dde97c99635aaafec68d0b8a3c12ee2075c6bdabeec6bb"
+  digest = "1:7523b527303a7b117a41b525e34a93e9910c0d612472f137afe396f768772f10"
   name = "github.com/google/gofuzz"
   packages = ["."]
   pruneopts = "UT"
-  revision = "24818f796faf91cd76ec7bddd72458fbced7a6c1"
+  revision = "bbcb9da2d746f8bdbd6a936686a0a6067ada0ec5"
 
 [[projects]]
   digest = "1:ca59b1175189b3f0e9f1793d2c350114be36eaabbe5b9f554b35edee1de50aea"
@@ -223,18 +221,17 @@
   revision = "f1f1a805ed361a0e078bb537e4ea78cd37dcf065"
 
 [[projects]]
-  branch = "release-branch.go1.12"
-  digest = "1:9edb1388850880d4d9ce2296fe215740fb1ed0f799990d60cef1daa0dbfafd75"
+  digest = "1:c3e2beab01cf8098bd574c9261bc2ef0a60aed45a7b2b4c0c15a1945c2b3b78b"
   name = "golang.org/x/net"
   packages = [
     "context",
-    "http/httpguts",
     "http2",
     "http2/hpack",
     "idna",
+    "lex/httplex",
   ]
   pruneopts = "UT"
-  revision = "65e2d4e15006aab9813ff8769e768bbf4bb667a0"
+  revision = "e90d6d0afc4c315a0d87a568ae68577cc15149a0"
 
 [[projects]]
   digest = "1:a8a2e60d057b93565e0caa292ec5b351fe64c81276e8bebd016a3a680dc1d92d"
@@ -250,23 +247,15 @@
   revision = "3c3a985cb79f52a3190fbc056984415ca6763d01"
 
 [[projects]]
-  digest = "1:0c56024909189aee3364b7f21a95a27459f718aa7c199a5c111c36cfffd9eaef"
+  digest = "1:5a8c9713f32ff4b05072d1eb87b1b2c3feacb061c1300519cbe12c946a853500"
   name = "golang.org/x/text"
   packages = [
-    "collate",
-    "collate/build",
-    "internal/colltab",
     "internal/gen",
-    "internal/tag",
     "internal/triegen",
     "internal/ucd",
-    "language",
-    "secure/bidirule",
     "transform",
-    "unicode/bidi",
     "unicode/cldr",
     "unicode/norm",
-    "unicode/rangetable",
     "width",
   ]
   pruneopts = "UT"
@@ -307,37 +296,6 @@
   pruneopts = "UT"
   revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
   version = "v2.2.2"
-
-[[projects]]
-  branch = "master"
-  digest = "1:9a48f3e50f1cbe57cdeef1efe35c1598feaa1cb1bc43de84d3de98dc66db145c"
-  name = "k8s.io/apimachinery"
-  packages = [
-    "pkg/api/errors",
-    "pkg/api/resource",
-    "pkg/apis/meta/v1",
-    "pkg/conversion",
-    "pkg/conversion/queryparams",
-    "pkg/fields",
-    "pkg/labels",
-    "pkg/runtime",
-    "pkg/runtime/schema",
-    "pkg/selection",
-    "pkg/types",
-    "pkg/util/errors",
-    "pkg/util/intstr",
-    "pkg/util/json",
-    "pkg/util/naming",
-    "pkg/util/net",
-    "pkg/util/runtime",
-    "pkg/util/sets",
-    "pkg/util/validation",
-    "pkg/util/validation/field",
-    "pkg/watch",
-    "third_party/forked/golang/reflect",
-  ]
-  pruneopts = "UT"
-  revision = "03ac7a9ade429d715a1a46ceaa3724c18ebae54f"
 
 [[projects]]
   digest = "1:c31aeb67d55acf2e358e98060afb6388fe28173909fdb95573dd89678833c808"
@@ -453,21 +411,14 @@
   revision = "e121606b0d09b2e1c467183ee46217fa85a6b672"
   version = "v2.0.0"
 
-[[projects]]
-  digest = "1:69367163a23cd68971724f36a6759a01d50968e58936808b7eb5e5c186a3a382"
-  name = "k8s.io/klog"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "8e90cee79f823779174776412c13478955131846"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
     "github.com/bitly/go-simplejson",
     "github.com/gorilla/mux",
-    "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/client-go/kubernetes",
+    "k8s.io/client-go/pkg/api/errors",
     "k8s.io/client-go/pkg/api/v1",
     "k8s.io/client-go/pkg/apis/rbac/v1alpha1",
     "k8s.io/client-go/rest",
