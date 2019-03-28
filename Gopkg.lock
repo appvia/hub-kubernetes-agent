@@ -26,14 +26,6 @@
   revision = "de5bf2ad457846296e2031421a34e2568e304e35"
 
 [[projects]]
-  digest = "1:b520b55fc1146c5b0eea03b07233f7a3d4a9be985c037c91ea6b82ecb81bd521"
-  name = "github.com/bitly/go-simplejson"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "aabad6e819789e569bd6aabf444c935aa9ba1e44"
-  version = "v0.5.0"
-
-[[projects]]
   digest = "1:0867d9e71d600a0b6529751f72d786f82be28fc0835e149b5213a2272d2653a7"
   name = "github.com/blang/semver"
   packages = ["."]
@@ -221,17 +213,18 @@
   revision = "f1f1a805ed361a0e078bb537e4ea78cd37dcf065"
 
 [[projects]]
-  digest = "1:c3e2beab01cf8098bd574c9261bc2ef0a60aed45a7b2b4c0c15a1945c2b3b78b"
+  branch = "master"
+  digest = "1:68afcd57b298dd2bc768f14efd036578b89d539861c63be1b0e7a92333f894e3"
   name = "golang.org/x/net"
   packages = [
     "context",
+    "http/httpguts",
     "http2",
     "http2/hpack",
     "idna",
-    "lex/httplex",
   ]
   pruneopts = "UT"
-  revision = "e90d6d0afc4c315a0d87a568ae68577cc15149a0"
+  revision = "63eda1eb0650888965ead1296efd04d0b2b61128"
 
 [[projects]]
   digest = "1:a8a2e60d057b93565e0caa292ec5b351fe64c81276e8bebd016a3a680dc1d92d"
@@ -247,15 +240,23 @@
   revision = "3c3a985cb79f52a3190fbc056984415ca6763d01"
 
 [[projects]]
-  digest = "1:5a8c9713f32ff4b05072d1eb87b1b2c3feacb061c1300519cbe12c946a853500"
+  digest = "1:0c56024909189aee3364b7f21a95a27459f718aa7c199a5c111c36cfffd9eaef"
   name = "golang.org/x/text"
   packages = [
+    "collate",
+    "collate/build",
+    "internal/colltab",
     "internal/gen",
+    "internal/tag",
     "internal/triegen",
     "internal/ucd",
+    "language",
+    "secure/bidirule",
     "transform",
+    "unicode/bidi",
     "unicode/cldr",
     "unicode/norm",
+    "unicode/rangetable",
     "width",
   ]
   pruneopts = "UT"
@@ -415,7 +416,6 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/bitly/go-simplejson",
     "github.com/gorilla/mux",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/pkg/api/errors",
