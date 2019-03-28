@@ -86,6 +86,7 @@ func NamespacesList(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		handleInternalServerError(w, "error listing namespaces", err)
+		return
 	} else {
 		var namespaceList []Namespace
 		for _, namespace := range namespaces.Items {
@@ -96,6 +97,7 @@ func NamespacesList(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 		}
 		handleSuccess(w, payload)
+		return
 	}
 }
 
@@ -121,6 +123,7 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 		}
 		handleSuccess(w, payload)
+		return
 	}
 }
 
@@ -143,8 +146,10 @@ func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 		}
 		handleSuccess(w, payload)
+		return
 	} else {
 		handleInternalServerError(w, "error deleting namespace", err)
+		return
 	}
 }
 
@@ -224,6 +229,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 		} else {
 			log.Printf("Failed to create role binding: %s-cluster-admin-%s", sa, namespaceName)
 			handleInternalServerError(w, "error creating rolebinding for namespace", err)
+			return
 		}
 	}
 	var namespaceItem Namespace
@@ -233,6 +239,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 	handleSuccess(w, payload)
+	return
 }
 
 func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
