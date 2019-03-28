@@ -13,13 +13,14 @@ package swagger
 import (
 	"encoding/base64"
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/pkg/api/errors"
+	"k8s.io/client-go/rest"
 
 	v1 "k8s.io/client-go/pkg/api/v1"
 	rbacv1alpha1 "k8s.io/client-go/pkg/apis/rbac/v1alpha1"
@@ -164,13 +165,26 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	name := vars["name"]
 	_ = name
 
-	var n NamespaceSpec
-	// TODO: switch to using marshal
-	decoder := json.NewDecoder(r.Body)
-	decoder.Decode(&n)
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		panic(err)
+	} else {
+		log.Println(string(body))
+	}
+
+	var n Namespace
+	err = json.Unmarshal(body, &n)
+
+	if err != nil {
+		log.Println(err)
+		handleInternalServerError(w, "client error", err)
+		return
+	}
+
+	log.Printf("Unmarshalled body to struct")
 
 	namespaceName := n.Name
-	namespaceServiceAccounts := n.ServiceAccounts
+	namespaceServiceAccounts := n.Spec.ServiceAccounts
 
 	log.Printf("Attempting to create namespace: %s", namespaceName)
 
@@ -182,15 +196,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	_ = namespace
 
 	if errors.IsAlreadyExists(err) || err == nil {
-		var namespaceItem	Namespace
-		namespaceItem = Namespace{Name: namespaceName}
-		payload, err := json.Marshal(namespaceItem)
-		if err != nil {
-			log.Println(err)
-		}
-		log.Printf("Namespace created")
-		handleSuccess(w, payload)
-		return
+		log.Printf("Namespace already exists: %s", namespaceName)
 	} else {
 		handleInternalServerError(w, "error creating namespace", err)
 		return
@@ -199,7 +205,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	for _, sa := range namespaceServiceAccounts {
 		subject := rbacv1alpha1.Subject{
 			Kind:      "ServiceAccount",
-			Name:      sa,
+			Name:      sa["name"],
 			Namespace: "default",
 		}
 
@@ -217,23 +223,24 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 			Subjects: subjects,
 			RoleRef:  roleRef,
 			ObjectMeta: v1.ObjectMeta{
-				Name: sa + "-cluster-admin-" + namespaceName,
+				Name: sa["name"] + "-cluster-admin-" + namespaceName,
 			},
 		}
 
-		roleBindingReponse, err := clientset.Rbac().RoleBindings(sa).Create(&roleBinding)
+		roleBindingReponse, err := clientset.Rbac().RoleBindings(sa["name"]).Create(&roleBinding)
 		_ = roleBindingReponse
 
 		if errors.IsAlreadyExists(err) || err == nil {
-			log.Printf("Created role binding: %s-cluster-admin-%s", sa, namespaceName)
+			log.Printf("Created role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
 		} else {
-			log.Printf("Failed to create role binding: %s-cluster-admin-%s", sa, namespaceName)
+			log.Printf("Failed to create role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
 			handleInternalServerError(w, "error creating rolebinding for namespace", err)
 			return
 		}
 	}
 	var namespaceItem Namespace
-	namespaceItem = Namespace{Name: namespaceName}
+
+	namespaceItem = Namespace{Name: namespaceName, Spec: &NamespaceSpec{Name: namespaceName, ServiceAccounts: namespaceServiceAccounts}}
 	payload, err := json.Marshal(namespaceItem)
 	if err != nil {
 		log.Println(err)
