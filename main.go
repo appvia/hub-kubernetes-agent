@@ -43,10 +43,20 @@ func main() {
 	if os.Getenv("AUTH_TOKEN") == "" {
 		log.Fatalf("No AUTH_TOKEN supplied")
 	}
+
+	var httpPort string
+	_ = httpPort
+
+	if os.Getenv("HTTP_PORT") == "" {
+		httpPort = ":8080"
+	} else {
+		httpPort = ":" + os.Getenv("HTTP_PORT")
+	}
+
 	log.Printf("Server started")
 
 	router := sw.NewRouter()
 	router.Use(Middleware)
 
-	log.Fatal(http.ListenAndServe(":8080", router))
+	log.Fatal(http.ListenAndServe(httpPort, router))
 }
