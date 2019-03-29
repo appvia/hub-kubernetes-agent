@@ -227,7 +227,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 			},
 		}
 
-		roleBindingReponse, err := clientset.Rbac().RoleBindings(sa["name"]).Create(&roleBinding)
+		roleBindingReponse, err := clientset.Rbac().RoleBindings("default").Create(&roleBinding)
 		_ = roleBindingReponse
 
 		if errors.IsAlreadyExists(err) || err == nil {
