@@ -16,6 +16,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
 	"k8s.io/client-go/kubernetes"
@@ -26,27 +27,26 @@ import (
 	rbacv1alpha1 "k8s.io/client-go/pkg/apis/rbac/v1alpha1"
 )
 
-var clientset *kubernetes.Clientset
-
-func getClient(server, token, caCert string) (*kubernetes.Clientset, error) {
-	decodedCert, err := base64.StdEncoding.DecodeString(caCert)
-
-	if err != nil {
-		log.Println("decode error:", err)
-		return nil, err
+func defaultTo(value, envName) string {
+	if os.Getenv(envName) {
+		return os.Getenv(envName)
 	}
 
 	config := &rest.Config{
-		Host:            server,
-		BearerToken:     token,
-		TLSClientConfig: rest.TLSClientConfig{CAData: decodedCert},
+		Host:        defaultTo(server, "KUBE_SERVER"),
+		BearerToken: defaultTo(token, "KUBE_TOKEN"),
+	}
+	if os.Getenv("KUBE_SKIP_TLS_VERIFY") {
+		config.Insecure = true
 	}
 
-	client, err := kubernetes.NewForConfig(config)
-	_ = client
-
-	if err != nil {
-		return nil, err
+	cert := defaultTo(caCert, "KUBE_CACERT")
+	if cert != "" {
+		decodedCert, err := base64.StdEncoding.DecodeString(caCert)
+		if err != nil {
+			return nil, err
+		}
+		TLSClientConfig.CAData = decodedCert
 	}
 
 	return kubernetes.NewForConfig(config)
