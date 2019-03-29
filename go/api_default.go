@@ -19,24 +19,31 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api/errors"
-	"k8s.io/client-go/rest"
 
-	v1 "k8s.io/client-go/pkg/api/v1"
-	rbacv1alpha1 "k8s.io/client-go/pkg/apis/rbac/v1alpha1"
+	v1 "k8s.io/api/core/v1"
+	rbac "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
-func defaultTo(value, envName) string {
-	if os.Getenv(envName) {
+func defaultTo(value, envName string) string {
+	if os.Getenv(envName) != "" {
 		return os.Getenv(envName)
 	}
 
+	return value
+}
+
+func getClient(server, token, caCert string) (kubernetes.Interface, error) {
 	config := &rest.Config{
-		Host:        defaultTo(server, "KUBE_SERVER"),
 		BearerToken: defaultTo(token, "KUBE_TOKEN"),
+		Host:        defaultTo(server, "KUBE_SERVER"),
+		Password:    defaultTo("", "KUBE_PASSWORD"),
+		Username:    defaultTo("", "KUBE_USERNAME"),
 	}
-	if os.Getenv("KUBE_SKIP_TLS_VERIFY") {
+	if os.Getenv("KUBE_SKIP_TLS_VERIFY") == "true" {
 		config.Insecure = true
 	}
 
@@ -46,7 +53,7 @@ func defaultTo(value, envName) string {
 		if err != nil {
 			return nil, err
 		}
-		TLSClientConfig.CAData = decodedCert
+		config.CAData = decodedCert
 	}
 
 	return kubernetes.NewForConfig(config)
@@ -83,7 +90,7 @@ func NamespacesList(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	namespaces, err := clientset.CoreV1().Namespaces().List(v1.ListOptions{})
+	namespaces, err := clientset.CoreV1().Namespaces().List(metav1.ListOptions{})
 
 	if err != nil {
 		handleInternalServerError(w, "error listing namespaces", err)
@@ -107,7 +114,7 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	name := vars["name"]
-	namespace, err := clientset.CoreV1().Namespaces().Get(name)
+	namespace, err := clientset.CoreV1().Namespaces().Get(name, metav1.GetOptions{})
 	_ = namespace
 
 	if err != nil {
@@ -138,7 +145,7 @@ func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	name := vars["name"]
 
-	if err := clientset.CoreV1().Namespaces().Delete(name, &v1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
+	if err := clientset.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
 		log.Printf("Deleted namespace: %s\n", name)
 		var namespaceItem Namespace
 		namespaceItem = Namespace{Name: name}
@@ -189,7 +196,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Attempting to create namespace: %s", namespaceName)
 
 	namespace, err := clientset.CoreV1().Namespaces().Create(&v1.Namespace{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: namespaceName,
 		},
 	})
@@ -203,31 +210,31 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, sa := range namespaceServiceAccounts {
-		subject := rbacv1alpha1.Subject{
+		subject := rbac.Subject{
 			Kind:      "ServiceAccount",
 			Name:      sa["name"],
 			Namespace: "default",
 		}
 
-		var subjects []rbacv1alpha1.Subject
+		var subjects []rbac.Subject
 
 		subjects = append(subjects, subject)
 
-		roleRef := rbacv1alpha1.RoleRef{
+		roleRef := rbac.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
 			Name:     "cluster-admin",
 		}
 
-		roleBinding := rbacv1alpha1.RoleBinding{
+		roleBinding := rbac.RoleBinding{
 			Subjects: subjects,
 			RoleRef:  roleRef,
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: sa["name"] + "-cluster-admin-" + namespaceName,
 			},
 		}
 
-		roleBindingReponse, err := clientset.Rbac().RoleBindings(sa["name"]).Create(&roleBinding)
+		roleBindingReponse, err := clientset.RbacV1().RoleBindings(sa["name"]).Create(&roleBinding)
 		_ = roleBindingReponse
 
 		if errors.IsAlreadyExists(err) || err == nil {
@@ -258,7 +265,7 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 	if namespace == "" {
 		namespace = "default"
 	}
-	namespaceCheck, err := clientset.CoreV1().Namespaces().Get(namespace)
+	namespaceCheck, err := clientset.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
 	_ = namespaceCheck
 
 	if errors.IsNotFound(err) {
@@ -267,7 +274,7 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serviceAccounts, err := clientset.CoreV1().ServiceAccounts(namespace).List(v1.ListOptions{})
+	serviceAccounts, err := clientset.CoreV1().ServiceAccounts(namespace).List(metav1.ListOptions{})
 	_ = serviceAccounts
 
 	if errors.IsNotFound(err) {
@@ -312,7 +319,7 @@ func ServiceAccountsNamespaceNameDelete(w http.ResponseWriter, r *http.Request) 
 		namespace = "default"
 	}
 
-	if err := clientset.CoreV1().ServiceAccounts(namespace).Delete(name, &v1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
+	if err := clientset.CoreV1().ServiceAccounts(namespace).Delete(name, &metav1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
 		var serviceAccount ServiceAccount
 		serviceAccount = ServiceAccount{Name: name}
 		payload, err := json.Marshal(serviceAccount)
@@ -339,7 +346,7 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 		namespace = "default"
 	}
 
-	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name)
+	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name, metav1.GetOptions{})
 	_ = serviceAccount
 
 	if errors.IsNotFound(err) {
@@ -353,7 +360,7 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	secret, err := clientset.CoreV1().Secrets(namespace).Get(serviceAccount.Secrets[0].Name)
+	secret, err := clientset.CoreV1().Secrets(namespace).Get(serviceAccount.Secrets[0].Name, metav1.GetOptions{})
 	_ = secret
 
 	if err != nil {
@@ -383,7 +390,7 @@ func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
 	namespace := vars["namespace"]
 
 	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Create(&v1.ServiceAccount{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 	})
