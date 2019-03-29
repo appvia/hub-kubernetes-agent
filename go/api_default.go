@@ -183,7 +183,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Unmarshalled body to struct")
 
-	namespaceName := n.Name
+	namespaceName := n.Spec.Name
 	namespaceServiceAccounts := n.Spec.ServiceAccounts
 
 	log.Printf("Attempting to create namespace: %s", namespaceName)
