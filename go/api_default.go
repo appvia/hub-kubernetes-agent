@@ -111,22 +111,39 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 	namespace, err := clientset.CoreV1().Namespaces().Get(name, metav1.GetOptions{})
 	_ = namespace
 
-	if err != nil {
-		if errors.IsNotFound(err) {
-			handleNotFoundError(w, err)
-		} else {
-			handleInternalServerError(w, "Error getting namespace", err)
-		}
-	} else {
-		var namespaceItem Namespace
-		namespaceItem = Namespace{Name: namespace.Name}
-		payload, err := json.Marshal(namespaceItem)
-		if err != nil {
-			log.Println(err)
-		}
-		handleSuccess(w, payload)
+	if errors.IsNotFound(err) {
+		handleNotFoundError(w, err)
 		return
 	}
+
+	if err != nil {
+		handleInternalServerError(w, "Error getting namespace", err)
+		return
+	}
+
+	serviceAccounts, err := clientset.CoreV1().ServiceAccounts(name).List(metav1.ListOptions{})
+	_ = serviceAccounts
+
+	if err != nil {
+		handleInternalServerError(w, "error getting service accounts for namespace", err)
+		return
+	}
+
+	namespaceServiceAccounts := make([]map[string]string, len(serviceAccounts.Items))
+
+	for _, sa := range serviceAccounts.Items {
+		item := map[string]string{"name": sa.Name}
+		namespaceServiceAccounts = append(namespaceServiceAccounts, item)
+	}
+
+	var namespaceResponse Namespace
+	namespaceResponse = Namespace{Name: name, Spec: &NamespaceSpec{Name: name, ServiceAccounts: namespaceServiceAccounts}}
+	payload, err := json.Marshal(namespaceResponse)
+	if err != nil {
+		log.Println(err)
+	}
+	handleSuccess(w, payload)
+	return
 }
 
 func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
@@ -141,12 +158,14 @@ func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
 
 	if err := clientset.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
 		log.Printf("Deleted namespace: %s\n", name)
-		var namespaceItem Namespace
-		namespaceItem = Namespace{Name: name}
-		payload, err := json.Marshal(namespaceItem)
+		deleteReponse := map[string]string{"name": name}
+		payload, err := json.Marshal(deleteReponse)
 		if err != nil {
 			log.Println(err)
+			handleInternalServerError(w, "error deleting namespace", err)
+			return
 		}
+		log.Printf("Deleted namespace: %s\n", name)
 		handleSuccess(w, payload)
 		return
 	} else {
@@ -181,8 +200,6 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 		handleInternalServerError(w, "client error", err)
 		return
 	}
-
-	log.Printf("Unmarshalled body to struct")
 
 	namespaceName := n.Spec.Name
 	namespaceServiceAccounts := n.Spec.ServiceAccounts
@@ -240,7 +257,6 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var namespaceItem Namespace
-
 	namespaceItem = Namespace{Name: namespaceName, Spec: &NamespaceSpec{Name: namespaceName, ServiceAccounts: namespaceServiceAccounts}}
 	payload, err := json.Marshal(namespaceItem)
 	if err != nil {
@@ -271,23 +287,17 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 	serviceAccounts, err := clientset.CoreV1().ServiceAccounts(namespace).List(metav1.ListOptions{})
 	_ = serviceAccounts
 
-	if errors.IsNotFound(err) {
-		log.Printf("Service account not found\n")
-		handleNotFoundError(w, err)
-		return
-	}
-
 	if err != nil {
-		handleInternalServerError(w, "error getting service account", err)
+		handleInternalServerError(w, "error getting service accounts", err)
 		return
 	}
 
-	var serviceAccountList []string
+	var serviceAccountsList []string
 	for _, sa := range serviceAccounts.Items {
-		serviceAccountList = append(serviceAccountList, sa.Name)
+		serviceAccountsList = append(serviceAccountsList, sa.Name)
 	}
 
-	payload, err := json.Marshal(serviceAccountList)
+	payload, err := json.Marshal(serviceAccountsList)
 
 	if err != nil {
 		log.Println(err)
