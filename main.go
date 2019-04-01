@@ -12,7 +12,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,6 +21,7 @@ import (
 	"github.com/urfave/cli"
 
 	sw "github.com/appvia/hub-kubernetes-agent/go"
+	muxlogrus "github.com/pytimer/mux-logrus"
 	logrus "github.com/sirupsen/logrus"
 )
 
@@ -30,6 +30,10 @@ var release string = "v0.0.1-rc1"
 func invokeServerAction(ctx *cli.Context) error {
 	router := sw.NewRouter()
 	router.Use(Middleware)
+
+	var logoptions muxlogrus.LogOptions
+	logoptions = muxlogrus.LogOptions{Formatter: new(logrus.JSONFormatter), EnableStarting: true}
+	router.Use(muxlogrus.NewLogger(logoptions).Middleware)
 
 	go func() {
 		if err := http.ListenAndServe(":"+ctx.String("http-port"), router); err != nil {
@@ -115,6 +119,6 @@ func main() {
 	}
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 }

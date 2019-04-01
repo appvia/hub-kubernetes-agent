@@ -119,6 +119,14 @@
   version = "v2.0.1"
 
 [[projects]]
+  branch = "master"
+  digest = "1:c21393c6c9e452b38ce1d6386f5bdca42090270c259355980b96691b6ce2734b"
+  name = "github.com/pytimer/mux-logrus"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "4024cdba0357997e76936ea8bba3c77e73478519"
+
+[[projects]]
   digest = "1:e4c72127d910a96daf869a44f3dd563b86dbe6931a172863a0e99c5ff04b59e4"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
@@ -402,6 +410,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/gorilla/mux",
+    "github.com/pytimer/mux-logrus",
     "github.com/sirupsen/logrus",
     "github.com/urfave/cli",
     "k8s.io/api/core/v1",

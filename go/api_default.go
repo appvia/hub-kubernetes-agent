@@ -14,7 +14,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -34,7 +33,7 @@ func getClient(server, token, caCert string) (*kubernetes.Clientset, error) {
 	decodedCert, err := base64.StdEncoding.DecodeString(caCert)
 
 	if err != nil {
-		log.Println("decode error:", err)
+		logrus.Println("decode error:", err)
 		return nil, err
 	}
 
@@ -61,7 +60,7 @@ func handleSuccess(w http.ResponseWriter, payload []byte) {
 }
 
 func handleInternalServerError(w http.ResponseWriter, reason string, err error) {
-	log.Println(err.Error())
+	logrus.Println(err.Error())
 	var apiError ApiError
 	apiError = ApiError{Reason: reason, Detail: err.Error()}
 	payload, err := json.Marshal(apiError)
@@ -70,7 +69,7 @@ func handleInternalServerError(w http.ResponseWriter, reason string, err error) 
 }
 
 func handleNotFoundError(w http.ResponseWriter, err error) {
-	log.Println(err.Error())
+	logrus.Println(err.Error())
 	var apiError ApiError
 	apiError = ApiError{Reason: "not found", Detail: err.Error()}
 	payload, err := json.Marshal(apiError)
@@ -82,7 +81,7 @@ func NamespacesList(w http.ResponseWriter, r *http.Request) {
 	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	if err != nil {
-		log.Println(err)
+		logrus.Println(err)
 	}
 
 	namespaces, err := clientset.CoreV1().Namespaces().List(metav1.ListOptions{})
@@ -97,7 +96,7 @@ func NamespacesList(w http.ResponseWriter, r *http.Request) {
 		}
 		payload, err := json.Marshal(namespaceList)
 		if err != nil {
-			log.Println(err)
+			logrus.Println(err)
 		}
 		handleSuccess(w, payload)
 		return
@@ -141,7 +140,7 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 	namespaceResponse = Namespace{Name: name, Spec: &NamespaceSpec{Name: name, ServiceAccounts: namespaceServiceAccounts}}
 	payload, err := json.Marshal(namespaceResponse)
 	if err != nil {
-		log.Println(err)
+		logrus.Println(err)
 	}
 	handleSuccess(w, payload)
 	return
@@ -151,7 +150,7 @@ func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
 	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	if err != nil {
-		log.Println(err)
+		logrus.Println(err)
 	}
 
 	vars := mux.Vars(r)
@@ -162,7 +161,7 @@ func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
 		deleteReponse := map[string]string{"name": name}
 		payload, err := json.Marshal(deleteReponse)
 		if err != nil {
-			log.Println(err)
+			logrus.Println(err)
 			handleInternalServerError(w, "error deleting namespace", err)
 			return
 		}
@@ -190,14 +189,14 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	} else {
-		log.Println(string(body))
+		logrus.Println(string(body))
 	}
 
 	var n Namespace
 	err = json.Unmarshal(body, &n)
 
 	if err != nil {
-		log.Println(err)
+		logrus.Println(err)
 		handleInternalServerError(w, "client error", err)
 		return
 	}
@@ -261,7 +260,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	namespaceItem = Namespace{Name: namespaceName, Spec: &NamespaceSpec{Name: namespaceName, ServiceAccounts: namespaceServiceAccounts}}
 	payload, err := json.Marshal(namespaceItem)
 	if err != nil {
-		log.Println(err)
+		logrus.Println(err)
 	}
 	handleSuccess(w, payload)
 	return
@@ -301,7 +300,7 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 	payload, err := json.Marshal(serviceAccountsList)
 
 	if err != nil {
-		log.Println(err)
+		logrus.Println(err)
 	}
 
 	logrus.Infof("Listing service accounts for namespace: %s\n", namespace)
@@ -313,7 +312,7 @@ func ServiceAccountsNamespaceNameDelete(w http.ResponseWriter, r *http.Request) 
 	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	if err != nil {
-		log.Println(err)
+		logrus.Println(err)
 	}
 
 	vars := mux.Vars(r)
@@ -329,7 +328,7 @@ func ServiceAccountsNamespaceNameDelete(w http.ResponseWriter, r *http.Request) 
 		serviceAccount = ServiceAccount{Name: name}
 		payload, err := json.Marshal(serviceAccount)
 		if err != nil {
-			log.Println(err)
+			logrus.Println(err)
 		}
 		logrus.Infof("Deleted service account: %s from namespace: %s\n", name, namespace)
 		handleSuccess(w, payload)
@@ -370,7 +369,7 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		logrus.Infof("Error getting service account token for %s\n", name)
-		log.Println(err)
+		logrus.Println(err)
 	}
 
 	// TODO: add token to response
@@ -380,7 +379,7 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 	serviceAccountItem = ServiceAccount{Name: name}
 	payload, err := json.Marshal(serviceAccountItem)
 	if err != nil {
-		log.Println(err)
+		logrus.Println(err)
 	}
 	logrus.Infof("Found service account: %s\n", name)
 	handleSuccess(w, payload)
@@ -408,13 +407,13 @@ func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
 		serviceAccountItem = ServiceAccount{Name: name}
 		payload, err := json.Marshal(serviceAccountItem)
 		if err != nil {
-			log.Println(err)
+			logrus.Println(err)
 		}
 		logrus.Infof("Created service account: %s in namespace: %s\n", name, namespace)
 		handleSuccess(w, payload)
 		return
 	} else {
-		log.Println(err)
+		logrus.Println(err)
 		handleInternalServerError(w, "error creating service account", err)
 		return
 	}
