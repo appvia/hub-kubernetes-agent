@@ -25,7 +25,9 @@ import (
 	logrus "github.com/sirupsen/logrus"
 )
 
-var release string = "v0.0.1-rc1"
+var (
+	release = "v0.0.1-rc1"
+)
 
 func invokeServerAction(ctx *cli.Context) error {
 	router := sw.NewRouter()
