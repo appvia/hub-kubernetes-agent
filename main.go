@@ -11,13 +11,40 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+
+	"github.com/urfave/cli"
 
 	sw "github.com/appvia/hub-kubernetes-agent/go"
+	logrus "github.com/sirupsen/logrus"
 )
+
+var release string = "v0.0.1-rc1"
+
+func invokeServerAction(ctx *cli.Context) error {
+	router := sw.NewRouter()
+	router.Use(Middleware)
+
+	go func() {
+		if err := http.ListenAndServe(":"+ctx.String("http-port"), router); err != nil {
+			logrus.WithFields(logrus.Fields{
+				"error": err,
+			}).Fatal("failed to start the api service")
+		}
+	}()
+
+	signalChannel := make(chan os.Signal)
+	signal.Notify(signalChannel, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	<-signalChannel
+
+	return nil
+}
 
 func Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -26,9 +53,9 @@ func Middleware(next http.Handler) http.Handler {
 		if strings.Contains(r.URL.Path, "healthz") == true {
 			next.ServeHTTP(w, r)
 		} else if token == os.Getenv("AUTH_TOKEN") {
-			log.Printf("Authenticated request")
+			logrus.Infof("Authenticated request")
 			if r.Header.Get("X-Kube-API-URL") == "" || r.Header.Get("X-Kube-Token") == "" || r.Header.Get("X-Kube-CA") == "" {
-				log.Printf("Missing Kube header")
+				logrus.Infof("Missing Kube header")
 				http.Error(w, "Forbidden", http.StatusForbidden)
 			} else {
 				next.ServeHTTP(w, r)
@@ -39,24 +66,55 @@ func Middleware(next http.Handler) http.Handler {
 	})
 }
 
+func init() {
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.JSONFormatter{})
+}
+
 func main() {
-	if os.Getenv("AUTH_TOKEN") == "" {
-		log.Fatalf("No AUTH_TOKEN supplied")
+	app := &cli.App{
+		Name:    "hub-kubernetes-agent",
+		Author:  "Daniel Whatmuff",
+		Email:   "daniel.whatmuff@appvia.io",
+		Usage:   "A backend agent used to provision resources within Kubernetes clusters",
+		Version: release,
+
+		OnUsageError: func(context *cli.Context, err error, _ bool) error {
+			fmt.Fprintf(os.Stderr, "[error] invalid options %s\n", err)
+			return err
+		},
+
+		Action: func(ctx *cli.Context) error {
+			if ctx.String("auth-token") == "" {
+				return cli.NewExitError("Missing AUTH_TOKEN", 1)
+			}
+			os.Setenv("AUTH_TOKEN", ctx.String("auth-token"))
+			logrus.Info("Starting server...")
+			return invokeServerAction(ctx)
+		},
+
+		Flags: []cli.Flag{
+			cli.StringFlag{
+				Name:   "listen",
+				Usage:  "the interface to bind the service to `INTERFACE`",
+				Value:  "127.0.0.1",
+				EnvVar: "LISTEN",
+			},
+			cli.IntFlag{
+				Name:   "http-port",
+				Usage:  "network interface the service should listen on `PORT`",
+				Value:  10080,
+				EnvVar: "HTTP_PORT",
+			},
+			cli.StringFlag{
+				Name:   "auth-token",
+				Usage:  "authentication token used to verifier the caller `TOKEN`",
+				EnvVar: "AUTH_TOKEN",
+			},
+		},
 	}
-
-	var httpPort string
-	_ = httpPort
-
-	if os.Getenv("HTTP_PORT") == "" {
-		httpPort = ":8080"
-	} else {
-		httpPort = ":" + os.Getenv("HTTP_PORT")
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	log.Printf("Server started")
-
-	router := sw.NewRouter()
-	router.Use(Middleware)
-
-	log.Fatal(http.ListenAndServe(httpPort, router))
 }

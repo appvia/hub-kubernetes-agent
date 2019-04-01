@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	logrus "github.com/sirupsen/logrus"
 	apicorev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -157,7 +158,7 @@ func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
 	name := vars["name"]
 
 	if err := clientset.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
-		log.Printf("Deleted namespace: %s\n", name)
+		logrus.Infof("Deleted namespace: %s\n", name)
 		deleteReponse := map[string]string{"name": name}
 		payload, err := json.Marshal(deleteReponse)
 		if err != nil {
@@ -165,7 +166,7 @@ func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
 			handleInternalServerError(w, "error deleting namespace", err)
 			return
 		}
-		log.Printf("Deleted namespace: %s\n", name)
+		logrus.Infof("Deleted namespace: %s\n", name)
 		handleSuccess(w, payload)
 		return
 	} else {
@@ -204,7 +205,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	namespaceName := n.Spec.Name
 	namespaceServiceAccounts := n.Spec.ServiceAccounts
 
-	log.Printf("Attempting to create namespace: %s", namespaceName)
+	logrus.Infof("Attempting to create namespace: %s", namespaceName)
 
 	namespace, err := clientset.CoreV1().Namespaces().Create(&apicorev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -214,7 +215,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	_ = namespace
 
 	if errors.IsAlreadyExists(err) || err == nil {
-		log.Printf("Namespace already exists: %s", namespaceName)
+		logrus.Infof("Namespace already exists: %s", namespaceName)
 	} else {
 		handleInternalServerError(w, "error creating namespace", err)
 		return
@@ -249,9 +250,9 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 		_ = roleBindingReponse
 
 		if errors.IsAlreadyExists(err) || err == nil {
-			log.Printf("Created role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
+			logrus.Infof("Created role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
 		} else {
-			log.Printf("Failed to create role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
+			logrus.Infof("Failed to create role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
 			handleInternalServerError(w, "error creating rolebinding for namespace", err)
 			return
 		}
@@ -279,7 +280,7 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 	_ = namespaceCheck
 
 	if errors.IsNotFound(err) {
-		log.Printf("Namespace: %s not found\n", namespace)
+		logrus.Infof("Namespace: %s not found\n", namespace)
 		handleNotFoundError(w, err)
 		return
 	}
@@ -303,7 +304,7 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	log.Printf("Listing service accounts for namespace: %s\n", namespace)
+	logrus.Infof("Listing service accounts for namespace: %s\n", namespace)
 	handleSuccess(w, payload)
 	return
 }
@@ -330,7 +331,7 @@ func ServiceAccountsNamespaceNameDelete(w http.ResponseWriter, r *http.Request) 
 		if err != nil {
 			log.Println(err)
 		}
-		log.Printf("Deleted service account: %s from namespace: %s\n", name, namespace)
+		logrus.Infof("Deleted service account: %s from namespace: %s\n", name, namespace)
 		handleSuccess(w, payload)
 		return
 	} else if err != nil {
@@ -354,7 +355,7 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 	_ = serviceAccount
 
 	if errors.IsNotFound(err) {
-		log.Printf("Service account %s not found\n", name)
+		logrus.Infof("Service account %s not found\n", name)
 		handleNotFoundError(w, err)
 		return
 	}
@@ -368,7 +369,7 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 	_ = secret
 
 	if err != nil {
-		log.Printf("Error getting service account token for %s\n", name)
+		logrus.Infof("Error getting service account token for %s\n", name)
 		log.Println(err)
 	}
 
@@ -381,7 +382,7 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-	log.Printf("Found service account: %s\n", name)
+	logrus.Infof("Found service account: %s\n", name)
 	handleSuccess(w, payload)
 	return
 }
@@ -409,7 +410,7 @@ func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println(err)
 		}
-		log.Printf("Created service account: %s in namespace: %s\n", name, namespace)
+		logrus.Infof("Created service account: %s in namespace: %s\n", name, namespace)
 		handleSuccess(w, payload)
 		return
 	} else {
