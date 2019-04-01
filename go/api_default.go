@@ -13,16 +13,18 @@ package swagger
 import (
 	"encoding/base64"
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/pkg/api/errors"
 
-	v1 "k8s.io/client-go/pkg/api/v1"
-	rbacv1alpha1 "k8s.io/client-go/pkg/apis/rbac/v1alpha1"
+	apicorev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var clientset *kubernetes.Clientset
@@ -82,7 +84,7 @@ func NamespacesList(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-	namespaces, err := clientset.CoreV1().Namespaces().List(v1.ListOptions{})
+	namespaces, err := clientset.CoreV1().Namespaces().List(metav1.ListOptions{})
 
 	if err != nil {
 		handleInternalServerError(w, "error listing namespaces", err)
@@ -106,25 +108,42 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 
 	vars := mux.Vars(r)
 	name := vars["name"]
-	namespace, err := clientset.CoreV1().Namespaces().Get(name)
+	namespace, err := clientset.CoreV1().Namespaces().Get(name, metav1.GetOptions{})
 	_ = namespace
 
-	if err != nil {
-		if errors.IsNotFound(err) {
-			handleNotFoundError(w, err)
-		} else {
-			handleInternalServerError(w, "Error getting namespace", err)
-		}
-	} else {
-		var namespaceItem Namespace
-		namespaceItem = Namespace{Name: namespace.Name}
-		payload, err := json.Marshal(namespaceItem)
-		if err != nil {
-			log.Println(err)
-		}
-		handleSuccess(w, payload)
+	if errors.IsNotFound(err) {
+		handleNotFoundError(w, err)
 		return
 	}
+
+	if err != nil {
+		handleInternalServerError(w, "Error getting namespace", err)
+		return
+	}
+
+	serviceAccounts, err := clientset.CoreV1().ServiceAccounts(name).List(metav1.ListOptions{})
+	_ = serviceAccounts
+
+	if err != nil {
+		handleInternalServerError(w, "error getting service accounts for namespace", err)
+		return
+	}
+
+	namespaceServiceAccounts := make([]map[string]string, len(serviceAccounts.Items))
+
+	for _, sa := range serviceAccounts.Items {
+		item := map[string]string{"name": sa.Name}
+		namespaceServiceAccounts = append(namespaceServiceAccounts, item)
+	}
+
+	var namespaceResponse Namespace
+	namespaceResponse = Namespace{Name: name, Spec: &NamespaceSpec{Name: name, ServiceAccounts: namespaceServiceAccounts}}
+	payload, err := json.Marshal(namespaceResponse)
+	if err != nil {
+		log.Println(err)
+	}
+	handleSuccess(w, payload)
+	return
 }
 
 func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
@@ -137,14 +156,16 @@ func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	name := vars["name"]
 
-	if err := clientset.CoreV1().Namespaces().Delete(name, &v1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
+	if err := clientset.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
 		log.Printf("Deleted namespace: %s\n", name)
-		var namespaceItem Namespace
-		namespaceItem = Namespace{Name: name}
-		payload, err := json.Marshal(namespaceItem)
+		deleteReponse := map[string]string{"name": name}
+		payload, err := json.Marshal(deleteReponse)
 		if err != nil {
 			log.Println(err)
+			handleInternalServerError(w, "error deleting namespace", err)
+			return
 		}
+		log.Printf("Deleted namespace: %s\n", name)
 		handleSuccess(w, payload)
 		return
 	} else {
@@ -164,76 +185,79 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	name := vars["name"]
 	_ = name
 
-	var n NamespaceSpec
-	// TODO: switch to using marshal
-	decoder := json.NewDecoder(r.Body)
-	decoder.Decode(&n)
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		panic(err)
+	} else {
+		log.Println(string(body))
+	}
 
-	namespaceName := n.Name
-	namespaceServiceAccounts := n.ServiceAccounts
+	var n Namespace
+	err = json.Unmarshal(body, &n)
+
+	if err != nil {
+		log.Println(err)
+		handleInternalServerError(w, "client error", err)
+		return
+	}
+
+	namespaceName := n.Spec.Name
+	namespaceServiceAccounts := n.Spec.ServiceAccounts
 
 	log.Printf("Attempting to create namespace: %s", namespaceName)
 
-	namespace, err := clientset.CoreV1().Namespaces().Create(&v1.Namespace{
-		ObjectMeta: v1.ObjectMeta{
+	namespace, err := clientset.CoreV1().Namespaces().Create(&apicorev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: namespaceName,
 		},
 	})
 	_ = namespace
 
 	if errors.IsAlreadyExists(err) || err == nil {
-		var namespaceItem	Namespace
-		namespaceItem = Namespace{Name: namespaceName}
-		payload, err := json.Marshal(namespaceItem)
-		if err != nil {
-			log.Println(err)
-		}
-		log.Printf("Namespace created")
-		handleSuccess(w, payload)
-		return
+		log.Printf("Namespace already exists: %s", namespaceName)
 	} else {
 		handleInternalServerError(w, "error creating namespace", err)
 		return
 	}
 
 	for _, sa := range namespaceServiceAccounts {
-		subject := rbacv1alpha1.Subject{
+		subject := rbacv1.Subject{
 			Kind:      "ServiceAccount",
-			Name:      sa,
+			Name:      sa["name"],
 			Namespace: "default",
 		}
 
-		var subjects []rbacv1alpha1.Subject
+		var subjects []rbacv1.Subject
 
 		subjects = append(subjects, subject)
 
-		roleRef := rbacv1alpha1.RoleRef{
+		roleRef := rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
 			Name:     "cluster-admin",
 		}
 
-		roleBinding := rbacv1alpha1.RoleBinding{
+		roleBinding := rbacv1.RoleBinding{
 			Subjects: subjects,
 			RoleRef:  roleRef,
-			ObjectMeta: v1.ObjectMeta{
-				Name: sa + "-cluster-admin-" + namespaceName,
+			ObjectMeta: metav1.ObjectMeta{
+				Name: sa["name"] + "-cluster-admin-" + namespaceName,
 			},
 		}
 
-		roleBindingReponse, err := clientset.Rbac().RoleBindings(sa).Create(&roleBinding)
+		roleBindingReponse, err := clientset.Rbac().RoleBindings("default").Create(&roleBinding)
 		_ = roleBindingReponse
 
 		if errors.IsAlreadyExists(err) || err == nil {
-			log.Printf("Created role binding: %s-cluster-admin-%s", sa, namespaceName)
+			log.Printf("Created role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
 		} else {
-			log.Printf("Failed to create role binding: %s-cluster-admin-%s", sa, namespaceName)
+			log.Printf("Failed to create role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
 			handleInternalServerError(w, "error creating rolebinding for namespace", err)
 			return
 		}
 	}
 	var namespaceItem Namespace
-	namespaceItem = Namespace{Name: namespaceName}
+	namespaceItem = Namespace{Name: namespaceName, Spec: &NamespaceSpec{Name: namespaceName, ServiceAccounts: namespaceServiceAccounts}}
 	payload, err := json.Marshal(namespaceItem)
 	if err != nil {
 		log.Println(err)
@@ -251,7 +275,7 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 	if namespace == "" {
 		namespace = "default"
 	}
-	namespaceCheck, err := clientset.CoreV1().Namespaces().Get(namespace)
+	namespaceCheck, err := clientset.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
 	_ = namespaceCheck
 
 	if errors.IsNotFound(err) {
@@ -260,26 +284,20 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serviceAccounts, err := clientset.CoreV1().ServiceAccounts(namespace).List(v1.ListOptions{})
+	serviceAccounts, err := clientset.CoreV1().ServiceAccounts(namespace).List(metav1.ListOptions{})
 	_ = serviceAccounts
 
-	if errors.IsNotFound(err) {
-		log.Printf("Service account not found\n")
-		handleNotFoundError(w, err)
-		return
-	}
-
 	if err != nil {
-		handleInternalServerError(w, "error getting service account", err)
+		handleInternalServerError(w, "error getting service accounts", err)
 		return
 	}
 
-	var serviceAccountList []string
+	var serviceAccountsList []string
 	for _, sa := range serviceAccounts.Items {
-		serviceAccountList = append(serviceAccountList, sa.Name)
+		serviceAccountsList = append(serviceAccountsList, sa.Name)
 	}
 
-	payload, err := json.Marshal(serviceAccountList)
+	payload, err := json.Marshal(serviceAccountsList)
 
 	if err != nil {
 		log.Println(err)
@@ -305,7 +323,7 @@ func ServiceAccountsNamespaceNameDelete(w http.ResponseWriter, r *http.Request) 
 		namespace = "default"
 	}
 
-	if err := clientset.CoreV1().ServiceAccounts(namespace).Delete(name, &v1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
+	if err := clientset.CoreV1().ServiceAccounts(namespace).Delete(name, &metav1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
 		var serviceAccount ServiceAccount
 		serviceAccount = ServiceAccount{Name: name}
 		payload, err := json.Marshal(serviceAccount)
@@ -332,7 +350,7 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 		namespace = "default"
 	}
 
-	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name)
+	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name, metav1.GetOptions{})
 	_ = serviceAccount
 
 	if errors.IsNotFound(err) {
@@ -346,7 +364,7 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	secret, err := clientset.CoreV1().Secrets(namespace).Get(serviceAccount.Secrets[0].Name)
+	secret, err := clientset.CoreV1().Secrets(namespace).Get(serviceAccount.Secrets[0].Name, metav1.GetOptions{})
 	_ = secret
 
 	if err != nil {
@@ -375,8 +393,8 @@ func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
 	name := vars["name"]
 	namespace := vars["namespace"]
 
-	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Create(&v1.ServiceAccount{
-		ObjectMeta: v1.ObjectMeta{
+	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Create(&apicorev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 	})
