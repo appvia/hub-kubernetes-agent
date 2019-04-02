@@ -177,7 +177,7 @@ paths:
         - "$ref": "#/parameters/name"
       responses:
         '204':
-          description: Successfully deleted the namespace
+          description: Successfully deleted the service account
         default:
           "$ref": "#/responses/apierror"
 
