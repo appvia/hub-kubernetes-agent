@@ -54,21 +54,28 @@ func invokeServerAction(ctx *cli.Context) error {
 
 func Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token := r.Header.Get("X-Token")
-
 		if strings.Contains(r.URL.Path, "healthz") == true {
 			next.ServeHTTP(w, r)
-		} else if token == os.Getenv("AUTH_TOKEN") {
-			logrus.Infof("Authenticated request")
-			if r.Header.Get("X-Kube-API-URL") == "" || r.Header.Get("X-Kube-Token") == "" || r.Header.Get("X-Kube-CA") == "" {
-				logrus.Infof("Missing Kube header")
-				http.Error(w, "Forbidden", http.StatusForbidden)
-			} else {
-				next.ServeHTTP(w, r)
-			}
-		} else {
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
 		}
+		tokenHeader := r.Header.Get("Authorization")
+		if len(tokenHeader) == 0 {
+			logrus.Infof("Missing Authorization header")
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		token := strings.Replace(tokenHeader, "Bearer ", "", 1)
+		if token != os.Getenv("AUTH_TOKEN") {
+			logrus.Infof("Incorrect Authorization header")
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		if r.Header.Get("X-Kube-API-URL") == "" || r.Header.Get("X-Kube-Token") == "" || r.Header.Get("X-Kube-CA") == "" {
+			logrus.Infof("Missing Kube header")
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 
