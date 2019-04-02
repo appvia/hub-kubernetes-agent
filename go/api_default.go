@@ -210,9 +210,11 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	})
 	_ = namespace
 
-	if errors.IsAlreadyExists(err) || err == nil {
+	if err == nil {
+		logrus.Infof("Namespace successfully created: %s", namespaceName)
+	} else if errors.IsAlreadyExists(err) {
 		logrus.Infof("Namespace already exists: %s", namespaceName)
-	} else {
+	} else if err != nil {
 		handleInternalServerError(w, "error creating namespace", err)
 		return
 	}
@@ -245,8 +247,10 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 		roleBindingReponse, err := clientset.Rbac().RoleBindings("default").Create(&roleBinding)
 		_ = roleBindingReponse
 
-		if errors.IsAlreadyExists(err) || err == nil {
+		if err == nil {
 			logrus.Infof("Created role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
+		} else if errors.IsAlreadyExists(err) {
+			logrus.Infof("Role binding already exists: %s-cluster-admin-%s", sa["name"], namespaceName)
 		} else {
 			logrus.Infof("Failed to create role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
 			handleInternalServerError(w, "error creating rolebinding for namespace", err)
