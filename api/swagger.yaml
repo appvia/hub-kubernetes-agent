@@ -14,7 +14,7 @@ securityDefinitions:
   apikey:
     type: apiKey
     in: header
-    name: x-token
+    name: Authorization
 basePath: "/api/v1beta"
 consumes:
   - application/json
