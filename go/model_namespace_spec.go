@@ -13,9 +13,6 @@ package swagger
 // The definitions for a namespace
 type NamespaceSpec struct {
 
-	// The name of the namespace
-	Name string `json:"name"`
-
 	// A list of service accounts for this namespace
 	ServiceAccounts []map[string]string `json:"service_accounts,omitempty"`
 }
