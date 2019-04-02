@@ -176,8 +176,8 @@ paths:
         - "$ref": "#/parameters/namespace"
         - "$ref": "#/parameters/name"
       responses:
-        '200':
-          "$ref": "#/responses/service-account"
+        '204':
+          description: Successfully deleted the service account
         default:
           "$ref": "#/responses/apierror"
 
@@ -236,7 +236,7 @@ paths:
         - "$ref": "#/parameters/namespace-definition"
         - "$ref": "#/parameters/name"
       responses:
-        '200':
+        '204':
           description: Successfully deleted the namespace
         default:
           "$ref": "#/responses/apierror"
@@ -272,14 +272,10 @@ definitions:
     description: The definitions for a namespace
     type: object
     properties:
-      name:
-        description: The name of the namespace
-        type: string
       spec:
         description: The name of the namespace
         type: string
     required:
-      - name
       - spec
 
   Namespace:
@@ -306,16 +302,12 @@ definitions:
     description: The resource specification of a service account
     type: object
     properties:
-      name:
-        description: The name of the service account
-        type: string
       token:
         description: The token associated with the service account
         type: string
       spec:
         "$ref": "#/definitions/NamespaceSpec"
     required:
-      - name
       - spec
 
   ServiceAccount:

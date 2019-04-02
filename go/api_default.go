@@ -59,6 +59,11 @@ func handleSuccess(w http.ResponseWriter, payload []byte) {
 	w.Write(payload)
 }
 
+func handleDelete(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func handleInternalServerError(w http.ResponseWriter, reason string, err error) {
 	logrus.Println(err.Error())
 	var apiError ApiError
@@ -137,7 +142,7 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var namespaceResponse Namespace
-	namespaceResponse = Namespace{Name: name, Spec: &NamespaceSpec{Name: name, ServiceAccounts: namespaceServiceAccounts}}
+	namespaceResponse = Namespace{Name: name, Spec: &NamespaceSpec{ServiceAccounts: namespaceServiceAccounts}}
 	payload, err := json.Marshal(namespaceResponse)
 	if err != nil {
 		logrus.Println(err)
@@ -158,15 +163,7 @@ func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
 
 	if err := clientset.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
 		logrus.Infof("Deleted namespace: %s\n", name)
-		deleteReponse := map[string]string{"name": name}
-		payload, err := json.Marshal(deleteReponse)
-		if err != nil {
-			logrus.Println(err)
-			handleInternalServerError(w, "error deleting namespace", err)
-			return
-		}
-		logrus.Infof("Deleted namespace: %s\n", name)
-		handleSuccess(w, payload)
+		handleDelete(w)
 		return
 	} else {
 		handleInternalServerError(w, "error deleting namespace", err)
@@ -201,7 +198,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	namespaceName := n.Spec.Name
+	namespaceName := n.Name
 	namespaceServiceAccounts := n.Spec.ServiceAccounts
 
 	logrus.Infof("Attempting to create namespace: %s", namespaceName)
@@ -257,7 +254,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var namespaceItem Namespace
-	namespaceItem = Namespace{Name: namespaceName, Spec: &NamespaceSpec{Name: namespaceName, ServiceAccounts: namespaceServiceAccounts}}
+	namespaceItem = Namespace{Name: namespaceName, Spec: &NamespaceSpec{ServiceAccounts: namespaceServiceAccounts}}
 	payload, err := json.Marshal(namespaceItem)
 	if err != nil {
 		logrus.Println(err)
@@ -324,14 +321,8 @@ func ServiceAccountsNamespaceNameDelete(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := clientset.CoreV1().ServiceAccounts(namespace).Delete(name, &metav1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
-		var serviceAccount ServiceAccount
-		serviceAccount = ServiceAccount{Name: name}
-		payload, err := json.Marshal(serviceAccount)
-		if err != nil {
-			logrus.Println(err)
-		}
 		logrus.Infof("Deleted service account: %s from namespace: %s\n", name, namespace)
-		handleSuccess(w, payload)
+		handleDelete(w)
 		return
 	} else if err != nil {
 		handleInternalServerError(w, "error deleting service account", err)

@@ -13,9 +13,6 @@ package swagger
 // The resource specification of a service account
 type ServiceAccountSpec struct {
 
-	// The name of the service account
-	Name string `json:"name"`
-
 	// The token associated with the service account
 	Token string `json:"token,omitempty"`
 }
