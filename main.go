@@ -38,13 +38,13 @@ func invokeServerAction(ctx *cli.Context) error {
 	logoptions = muxlogrus.LogOptions{Formatter: new(logrus.JSONFormatter), EnableStarting: true}
 	router.Use(muxlogrus.NewLogger(logoptions).Middleware)
 
-    srv := &http.Server{
-		Addr:         ctx.String("listen")+":"+ctx.String("http-port"),
+	srv := &http.Server{
+		Addr:         ctx.String("listen") + ":" + ctx.String("http-port"),
 		WriteTimeout: time.Second * 15,
 		ReadTimeout:  time.Second * 15,
 		IdleTimeout:  time.Second * 60,
-		Handler: router,
-    }
+		Handler:      router,
+	}
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
