@@ -63,11 +63,6 @@ func invokeServerAction(ctx *cli.Context) error {
 				}).Fatal("failed to start the api service")
 			}
 		}()
-		signalChannel := make(chan os.Signal)
-		signal.Notify(signalChannel, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-		<-signalChannel
-
-		return nil
 	} else {
 		go func() {
 			if err := http.ListenAndServe(ctx.String("listen")+":"+ctx.String("http-port"), router); err != nil {
@@ -76,12 +71,11 @@ func invokeServerAction(ctx *cli.Context) error {
 				}).Fatal("failed to start the api service")
 			}
 		}()
-		signalChannel := make(chan os.Signal)
-		signal.Notify(signalChannel, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-		<-signalChannel
-
-		return nil
 	}
+	signalChannel := make(chan os.Signal)
+	signal.Notify(signalChannel, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	<-signalChannel
+	return nil
 
 }
 
