@@ -55,12 +55,10 @@ func getClient(server, token, caCert string) (*kubernetes.Clientset, error) {
 
 func handleSuccess(w http.ResponseWriter, payload []byte) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
 	w.Write(payload)
 }
 
 func handleDelete(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -70,7 +68,8 @@ func handleInternalServerError(w http.ResponseWriter, reason string, err error) 
 	apiError = ApiError{Reason: reason, Detail: err.Error()}
 	payload, err := json.Marshal(apiError)
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	http.Error(w, string(payload), http.StatusInternalServerError)
+	w.WriteHeader(http.StatusInternalServerError)
+	w.Write(payload)
 }
 
 func handleNotFoundError(w http.ResponseWriter, err error) {
@@ -79,7 +78,8 @@ func handleNotFoundError(w http.ResponseWriter, err error) {
 	apiError = ApiError{Reason: "not found", Detail: err.Error()}
 	payload, err := json.Marshal(apiError)
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	http.Error(w, string(payload), http.StatusNotFound)
+	w.WriteHeader(http.StatusNotFound)
+	w.Write(payload)
 }
 
 func NamespacesList(w http.ResponseWriter, r *http.Request) {
@@ -162,7 +162,7 @@ func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
 	name := vars["name"]
 
 	if err := clientset.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
-		logrus.Infof("Deleted namespace: %s\n", name)
+		logrus.Infof("Deleted namespace: %s", name)
 		handleDelete(w)
 		return
 	} else {
@@ -304,7 +304,7 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 		logrus.Println(err)
 	}
 
-	logrus.Infof("Listing service accounts for namespace: %s\n", namespace)
+	logrus.Infof("Listing service accounts for namespace: %s", namespace)
 	handleSuccess(w, payload)
 	return
 }
@@ -325,7 +325,7 @@ func ServiceAccountsNamespaceNameDelete(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := clientset.CoreV1().ServiceAccounts(namespace).Delete(name, &metav1.DeleteOptions{}); errors.IsNotFound(err) || err == nil {
-		logrus.Infof("Deleted service account: %s from namespace: %s\n", name, namespace)
+		logrus.Infof("Deleted service account: %s from namespace: %s", name, namespace)
 		handleDelete(w)
 		return
 	} else if err != nil {
@@ -363,7 +363,7 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 	_ = secret
 
 	if err != nil {
-		logrus.Infof("Error getting service account token for %s\n", name)
+		logrus.Infof("Error getting service account token for %s", name)
 		logrus.Println(err)
 	}
 
@@ -376,7 +376,7 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logrus.Println(err)
 	}
-	logrus.Infof("Found service account: %s\n", name)
+	logrus.Infof("Found service account: %s", name)
 	handleSuccess(w, payload)
 	return
 }
@@ -404,7 +404,7 @@ func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logrus.Println(err)
 		}
-		logrus.Infof("Created service account: %s in namespace: %s\n", name, namespace)
+		logrus.Infof("Created service account: %s in namespace: %s", name, namespace)
 		handleSuccess(w, payload)
 		return
 	} else {
