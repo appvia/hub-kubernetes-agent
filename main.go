@@ -51,7 +51,7 @@ func invokeServerAction(ctx *cli.Context) error {
 			},
 		}
 		srv := &http.Server{
-			Addr:         ctx.String("listen")+":"+ctx.String("https-port"),
+			Addr:         ctx.String("listen") + ":" + ctx.String("https-port"),
 			Handler:      router,
 			TLSConfig:    cfg,
 			TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
