@@ -88,18 +88,18 @@ func Middleware(next http.Handler) http.Handler {
 		tokenHeader := r.Header.Get("Authorization")
 		if len(tokenHeader) == 0 {
 			logrus.Infof("Missing Authorization header")
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 		token := strings.Replace(tokenHeader, "Bearer ", "", 1)
 		if token != os.Getenv("AUTH_TOKEN") {
 			logrus.Infof("Incorrect Authorization header")
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 		if r.Header.Get("X-Kube-API-URL") == "" || r.Header.Get("X-Kube-Token") == "" || r.Header.Get("X-Kube-CA") == "" {
 			logrus.Infof("Missing Kube header")
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 		next.ServeHTTP(w, r)

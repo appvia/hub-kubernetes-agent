@@ -39,3 +39,10 @@ func TestHealthEndpoint(t *testing.T) {
 	Router().ServeHTTP(response, request)
 	assert.Equal(t, 200, response.Code, "OK response is expected")
 }
+
+func TestUnauthorized(t *testing.T) {
+	request, _ := http.NewRequest("GET", "/api/v1beta/namespaces", nil)
+	response := httptest.NewRecorder()
+	Router().ServeHTTP(response, request)
+	assert.Equal(t, 401, response.Code, "Unauthorized response is expected")
+}
