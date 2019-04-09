@@ -11,6 +11,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,6 +21,8 @@ import (
 	muxlogrus "github.com/pytimer/mux-logrus"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 func Router() *mux.Router {
@@ -45,4 +48,19 @@ func TestUnauthorized(t *testing.T) {
 	response := httptest.NewRecorder()
 	Router().ServeHTTP(response, request)
 	assert.Equal(t, 401, response.Code, "Unauthorized response is expected")
+}
+
+func TestPodList(t *testing.T) {
+	fmt.Printf("Testing fake client\n")
+	client := CreateFakeClient()
+	pods, err := client.CoreV1().Pods("default").List(metav1.ListOptions{})
+	assert.Equal(t, nil, err, "Fake client created and pod list worked")
+	for _, pod := range pods.Items {
+		fmt.Println(pod)
+	}
+}
+
+func CreateFakeClient() *fake.Clientset {
+	client := fake.NewSimpleClientset()
+	return client
 }
