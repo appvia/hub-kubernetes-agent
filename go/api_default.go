@@ -233,7 +233,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 		roleRef := rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     "cluster-admin",
+			Name:     "admin",
 		}
 
 		roleBinding := rbacv1.RoleBinding{
@@ -244,11 +244,11 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 			},
 		}
 
-		roleBindingReponse, err := clientset.Rbac().RoleBindings("default").Create(&roleBinding)
+		roleBindingReponse, err := clientset.Rbac().RoleBindings(namespaceName).Create(&roleBinding)
 		_ = roleBindingReponse
 
 		if err == nil {
-			logrus.Infof("Created role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
+			logrus.Infof("Created cluster role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
 		} else if errors.IsAlreadyExists(err) {
 			logrus.Infof("Role binding already exists: %s-cluster-admin-%s", sa["name"], namespaceName)
 		} else {
