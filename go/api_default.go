@@ -62,6 +62,16 @@ func handleDelete(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func handleBadRequest(w http.ResponseWriter, reason string, detail string) {
+	var apiError ApiError
+	apiError = ApiError{Reason: reason, Detail: detail}
+	payload, err := json.Marshal(apiError)
+	_ = err
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write(payload)
+}
+
 func handleInternalServerError(w http.ResponseWriter, reason string, err error) {
 	logrus.Println(err.Error())
 	var apiError ApiError
@@ -200,6 +210,11 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 
 	namespaceName := n.Name
 	namespaceServiceAccounts := n.Spec.ServiceAccounts
+
+	if namespaceName == "default" || namespaceName == "kube-system" {
+		handleBadRequest(w, "bad request", "namespace cannot be default or kube-system")
+		return
+	}
 
 	logrus.Infof("Attempting to create namespace: %s", namespaceName)
 
