@@ -240,7 +240,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 			Subjects: subjects,
 			RoleRef:  roleRef,
 			ObjectMeta: metav1.ObjectMeta{
-				Name: sa["name"] + "-cluster-admin-" + namespaceName,
+				Name: sa["name"] + "-admin-" + namespaceName,
 			},
 		}
 
@@ -248,11 +248,11 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 		_ = roleBindingReponse
 
 		if err == nil {
-			logrus.Infof("Created cluster role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
+			logrus.Infof("Created cluster role binding: %s-admin-%s", sa["name"], namespaceName)
 		} else if errors.IsAlreadyExists(err) {
-			logrus.Infof("Role binding already exists: %s-cluster-admin-%s", sa["name"], namespaceName)
+			logrus.Infof("Role binding already exists: %s-admin-%s", sa["name"], namespaceName)
 		} else {
-			logrus.Infof("Failed to create role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
+			logrus.Infof("Failed to create role binding: %s-admin-%s", sa["name"], namespaceName)
 			handleInternalServerError(w, "error creating rolebinding for namespace", err)
 			return
 		}
