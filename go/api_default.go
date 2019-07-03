@@ -248,7 +248,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 		_ = roleBindingReponse
 
 		if err == nil {
-			logrus.Infof("Created cluster role binding: %s-admin-%s", sa["name"], namespaceName)
+			logrus.Infof("Created role binding: %s-admin-%s", sa["name"], namespaceName)
 		} else if errors.IsAlreadyExists(err) {
 			logrus.Infof("Role binding already exists: %s-admin-%s", sa["name"], namespaceName)
 		} else {
