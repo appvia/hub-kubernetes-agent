@@ -149,6 +149,8 @@ paths:
       responses:
         '200':
           "$ref": "#/responses/service-account"
+        '400':
+          "$ref": "#/responses/apierror"
         '404':
           "$ref": "#/responses/apierror"
         default:
