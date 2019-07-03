@@ -233,26 +233,26 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 		roleRef := rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     "cluster-admin",
+			Name:     "admin",
 		}
 
 		roleBinding := rbacv1.RoleBinding{
 			Subjects: subjects,
 			RoleRef:  roleRef,
 			ObjectMeta: metav1.ObjectMeta{
-				Name: sa["name"] + "-cluster-admin-" + namespaceName,
+				Name: sa["name"] + "-admin-" + namespaceName,
 			},
 		}
 
-		roleBindingReponse, err := clientset.Rbac().RoleBindings("default").Create(&roleBinding)
+		roleBindingReponse, err := clientset.Rbac().RoleBindings(namespaceName).Create(&roleBinding)
 		_ = roleBindingReponse
 
 		if err == nil {
-			logrus.Infof("Created role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
+			logrus.Infof("Created role binding: %s-admin-%s", sa["name"], namespaceName)
 		} else if errors.IsAlreadyExists(err) {
-			logrus.Infof("Role binding already exists: %s-cluster-admin-%s", sa["name"], namespaceName)
+			logrus.Infof("Role binding already exists: %s-admin-%s", sa["name"], namespaceName)
 		} else {
-			logrus.Infof("Failed to create role binding: %s-cluster-admin-%s", sa["name"], namespaceName)
+			logrus.Infof("Failed to create role binding: %s-admin-%s", sa["name"], namespaceName)
 			handleInternalServerError(w, "error creating rolebinding for namespace", err)
 			return
 		}
