@@ -238,7 +238,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 		subject := rbacv1.Subject{
 			Kind:      "ServiceAccount",
 			Name:      sa["name"],
-			Namespace: "default",
+			Namespace: sa["namespace"],
 		}
 
 		var subjects []rbacv1.Subject
@@ -255,7 +255,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 			Subjects: subjects,
 			RoleRef:  roleRef,
 			ObjectMeta: metav1.ObjectMeta{
-				Name: sa["name"] + "-admin-" + namespaceName,
+				Name: sa["name"] + sa["namespace"] + "-admin-" + namespaceName,
 			},
 		}
 
@@ -263,11 +263,11 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 		_ = roleBindingReponse
 
 		if err == nil {
-			logrus.Infof("Created role binding: %s-admin-%s", sa["name"], namespaceName)
+			logrus.Infof("Created role binding: %s-%s-admin-%s", sa["name"], sa["namespace"], namespaceName)
 		} else if errors.IsAlreadyExists(err) {
-			logrus.Infof("Role binding already exists: %s-admin-%s", sa["name"], namespaceName)
+			logrus.Infof("Role binding already exists: %s-%s-admin-%s", sa["name"], sa["namespace"], namespaceName)
 		} else {
-			logrus.Infof("Failed to create role binding: %s-admin-%s", sa["name"], namespaceName)
+			logrus.Infof("Failed to create role binding: %s-%s-admin-%s", sa["name"], sa["namespace"], namespaceName)
 			handleInternalServerError(w, "error creating rolebinding for namespace", err)
 			return
 		}
@@ -375,19 +375,17 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	secret, err := clientset.CoreV1().Secrets(namespace).Get(serviceAccount.Secrets[0].Name, metav1.GetOptions{})
-	_ = secret
 
 	if err != nil {
 		logrus.Infof("Error getting service account token for %s", name)
 		logrus.Println(err)
 	}
 
-	// TODO: add token to response
-	// ServiceAccountSpec{Name: name, Token: string(secret.Data["token"])}
+	responseServiceAccountSpec := ServiceAccountSpec{Name: name, Token: string(secret.Data["token"]), Namespace: namespace}
 
-	var serviceAccountItem ServiceAccount
-	serviceAccountItem = ServiceAccount{Name: name}
-	payload, err := json.Marshal(serviceAccountItem)
+	responseServiceAccount := ServiceAccount{Name: name, ServiceAccountSpec: &responseServiceAccountSpec}
+
+	payload, err := json.Marshal(responseServiceAccount)
 	if err != nil {
 		logrus.Println(err)
 	}
@@ -403,28 +401,47 @@ func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
 	name := vars["name"]
 	namespace := vars["namespace"]
 
-	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Create(&apicorev1.ServiceAccount{
+	_, err = clientset.CoreV1().ServiceAccounts(namespace).Create(&apicorev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 	})
-	_ = serviceAccount
 
-	if errors.IsAlreadyExists(err) || err == nil {
-		// TODO: add token to response
-		// ServiceAccountSpec{Name: name, Token: string(secret.Data["token"])}
-		var serviceAccountItem ServiceAccount
-		serviceAccountItem = ServiceAccount{Name: name}
-		payload, err := json.Marshal(serviceAccountItem)
-		if err != nil {
-			logrus.Println(err)
-		}
-		logrus.Infof("Created service account: %s in namespace: %s", name, namespace)
-		handleSuccess(w, payload)
-		return
-	} else {
-		logrus.Println(err)
+	if err == nil {
+		logrus.Infof("Service account created: %s", name)
+	} else if errors.IsAlreadyExists(err) {
+		logrus.Infof("Service account already exists: %s", name)
+	} else if err != nil {
 		handleInternalServerError(w, "error creating service account", err)
 		return
 	}
+
+
+	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name, metav1.GetOptions{})
+
+	if err != nil {
+		logrus.Infof("Error getting service account: %s", name)
+		handleInternalServerError(w, "error getting service account", err)
+		return
+	}
+
+	secret, err := clientset.CoreV1().Secrets(namespace).Get(serviceAccount.Secrets[0].Name, metav1.GetOptions{})
+
+	if err != nil {
+		logrus.Infof("Error getting token from secrets for service account: %s", name)
+		handleInternalServerError(w, "error getting service account token from secrets", err)
+		return
+	}
+
+	responseServiceAccountSpec := ServiceAccountSpec{Name: name, Token: string(secret.Data["token"]), Namespace: namespace}
+
+	responseServiceAccount := ServiceAccount{Name: name, ServiceAccountSpec: &responseServiceAccountSpec}
+
+	payload, err := json.Marshal(responseServiceAccount)
+	if err != nil {
+		logrus.Println(err)
+	}
+	logrus.Infof("Created service account: %s in namespace: %s", name, namespace)
+	handleSuccess(w, payload)
+	return
 }

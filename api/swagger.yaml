@@ -69,6 +69,13 @@ parameters:
     schema:
       "$ref": "#/definitions/Namespace"
     required: true
+  service-account-list:
+    name: service-account-list
+    description: A list of service accounts
+    in: body
+    schema:
+      "$ref": "#/definitions/ServiceAccountSpec"
+    required: true
   service-account-definition:
     name: service-account
     description: The definition of a service account
@@ -206,9 +213,8 @@ paths:
     get:
       summary: Retrieves a namespace
       description: |
-        Used to create a new namespace
+        Used to get a namespace
       parameters:
-        - "$ref": "#/parameters/namespace-definition"
         - "$ref": "#/parameters/name"
       responses:
         '200':
@@ -219,9 +225,8 @@ paths:
     put:
       summary: Create a new namespace
       description: |
-        Used to create a new namespace
+        Used to create a new namespace and optionally add a list of service accounts as admins
       parameters:
-        - "$ref": "#/parameters/global-service-account"
         - "$ref": "#/parameters/namespace-definition"
         - "$ref": "#/parameters/name"
       responses:
@@ -235,7 +240,6 @@ paths:
       description: |
         Deletes a namespace
       parameters:
-        - "$ref": "#/parameters/namespace-definition"
         - "$ref": "#/parameters/name"
       responses:
         '204':
@@ -274,9 +278,11 @@ definitions:
     description: The definitions for a namespace
     type: object
     properties:
-      spec:
+      name:
         description: The name of the namespace
         type: string
+      service_accounts:
+        "$ref": "#/definitions/ServiceAccountList"
     required:
       - spec
 
@@ -304,13 +310,17 @@ definitions:
     description: The resource specification of a service account
     type: object
     properties:
+      name:
+        description: The name of this service account
+        type: string
+      namespace:
+        description: The namespace this service account is in
+        type: string
       token:
         description: The token associated with the service account
         type: string
-      spec:
-        "$ref": "#/definitions/NamespaceSpec"
     required:
-      - spec
+      - name
 
   ServiceAccount:
     description: A service account
@@ -330,7 +340,7 @@ definitions:
       items:
         type: array
         items:
-          "$ref": "#/definitions/ServiceAccount"
+          "$ref": "#/definitions/ServiceAccountSpec"
 
   GlobalServiceAccount:
     description: A global service account
