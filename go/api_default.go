@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -90,6 +91,15 @@ func handleNotFoundError(w http.ResponseWriter, err error) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusNotFound)
 	w.Write(payload)
+}
+
+func appendIfMissing(slice []string, new string) []string {
+    for _, existing := range slice {
+        if existing == new {
+            return slice
+        }
+    }
+    return append(slice, new)
 }
 
 func NamespacesList(w http.ResponseWriter, r *http.Request) {
@@ -416,7 +426,6 @@ func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name, metav1.GetOptions{})
 
 	if err != nil {
@@ -444,4 +453,113 @@ func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
 	logrus.Infof("Created service account: %s in namespace: %s", name, namespace)
 	handleSuccess(w, payload)
 	return
+}
+
+func VersionsPost(w http.ResponseWriter, r *http.Request) {
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
+
+	if err != nil {
+		logrus.Errorf("Error connecting to Kubernetes cluster %s", err.Error())
+		handleInternalServerError(w, "Error connecting to Kubernetes cluster", err)
+		return
+	}
+
+	vars := mux.Vars(r)
+
+	namespace := vars["namespace"]
+
+	body, err := ioutil.ReadAll(r.Body)
+
+	if err != nil {
+		panic(err)
+	} else {
+		logrus.Println(string(body))
+	}
+
+	var imageuri ImageUri
+	err = json.Unmarshal(body, &imageuri)
+
+	if imageuri.Uri == "" || namespace == "" {
+		handleBadRequest(w, "Bad request", "imageuri and namespace path parameters are required")
+		return
+	}
+
+	var deployedImageVersions []string
+
+	pods, err := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{})
+
+	if err != nil {
+		logrus.Errorf("Error listing pods in namespace %s: %s", namespace, err.Error())
+		handleInternalServerError(w, "Error listing pods", err)
+		return
+	}
+
+	for _, pod := range pods.Items {
+		logrus.Infof("Checking image in pod %s", pod.GetName())
+		containers := pod.Spec.Containers
+		for _, container := range containers {
+			image := container.Image
+			if strings.Contains(image, imageuri.Uri) {
+				deployedImageVersions = appendIfMissing(deployedImageVersions, image)
+			}
+		}
+	}
+
+	payload, err := json.Marshal(deployedImageVersions)
+
+	if err != nil {
+		logrus.Println(err)
+	}
+
+	handleSuccess(w, payload)
+}
+
+func VersionsGet(w http.ResponseWriter, r *http.Request) {
+	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
+
+	if err != nil {
+		logrus.Errorf("Error connecting to Kubernetes cluster %s", err.Error())
+		handleInternalServerError(w, "Error connecting to Kubernetes cluster", err)
+		return
+	}
+
+	vars := mux.Vars(r)
+
+	namespace := vars["namespace"]
+
+	var deployedImageVersions []string
+
+	logrus.Infoln("Getting versions for namespace:" + namespace)
+
+	pods, err := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{})
+
+	if err != nil {
+		logrus.Errorf("Error listing pods in namespace %s: %s", namespace, err.Error())
+		handleInternalServerError(w, "Error listing pods", err)
+	}
+
+	for _, pod := range pods.Items {
+		logrus.Infof("Checking image in pod %s", pod.GetName())
+		containers := pod.Spec.Containers
+		for _, container := range containers {
+			image := container.Image
+			deployedImageVersions = appendIfMissing(deployedImageVersions, image)
+		}
+	}
+
+	var payload []byte
+	if len(deployedImageVersions) == 0 {
+		logrus.Infoln("No containers found")
+		payload, err = json.Marshal([]ImageTag{})
+		if err != nil {
+			logrus.Println(err)
+		}
+	} else {
+		logrus.Infoln("Containers found")
+		payload, err = json.Marshal(deployedImageVersions)
+	}
+	if err != nil {
+		logrus.Println(err)
+	}
+	handleSuccess(w, payload)
 }
