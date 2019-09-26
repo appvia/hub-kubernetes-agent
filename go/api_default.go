@@ -505,12 +505,20 @@ func VersionsPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	payload, err := json.Marshal(deployedImageVersions)
-
+	var payload []byte
+	if len(deployedImageVersions) == 0 {
+		logrus.Infoln("No matching images found")
+		payload, err = json.Marshal([]ImageTagList{})
+		if err != nil {
+			logrus.Println(err)
+		}
+	} else {
+		logrus.Infoln("Matching images found")
+		payload, err = json.Marshal(deployedImageVersions)
+	}
 	if err != nil {
 		logrus.Println(err)
 	}
-
 	handleSuccess(w, payload)
 }
 
@@ -550,7 +558,7 @@ func VersionsGet(w http.ResponseWriter, r *http.Request) {
 	var payload []byte
 	if len(deployedImageVersions) == 0 {
 		logrus.Infoln("No containers found")
-		payload, err = json.Marshal([]ImageTag{})
+		payload, err = json.Marshal([]ImageTagList{})
 		if err != nil {
 			logrus.Println(err)
 		}

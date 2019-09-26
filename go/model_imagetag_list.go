@@ -10,9 +10,9 @@
 
 package swagger
 
-// The resource definition for a Docker image tag
-type ImageTag struct {
+// The resource definition for a list of Docker image tags
+type ImageTagList struct {
 
-	// A Docker image version tag
-	Tag string `json:"tag"`
+	// A list of image tags
+	Tags []string `json:",omitempty`
 }

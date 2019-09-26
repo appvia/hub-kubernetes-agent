@@ -10,7 +10,7 @@
 
 package swagger
 
-// The resource definition for a namespace in the cluster
+// The resource definition for a Docker image uri
 type ImageUri struct {
 
 	// A Docker image uri

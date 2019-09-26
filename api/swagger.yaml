@@ -416,11 +416,7 @@ definitions:
 
   ImageUri:
     description: Docker image URI
-    type: object
-    properties:
-      uri:
-        description: The URI
-        type: string
+    type: string
 
   ImageUriList:
     description: A list of Docker image URIs
@@ -433,11 +429,7 @@ definitions:
 
   ImageTag:
     description: Docker image version tag
-    type: object
-    properties:
-      tag:
-        description: The version tag
-        type: string
+    type: string
 
   ImageTagList:
     description: A list of Docker image version tags
