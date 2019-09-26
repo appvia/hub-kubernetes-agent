@@ -13,7 +13,7 @@ REGISTRY=quay.io
 ROOT_DIR=${PWD}
 SWAGGER_API="swagger.yml"
 VERSION ?= $(shell awk '/release.*=/ { print $$3 }' main.go | sed 's/"//g')
-VETARGS ?= -asmdecl -atomic -bool -buildtags -copylocks -methods -nilfunc -printf -rangeloops -structtags -unsafeptr
+VETARGS ?= -asmdecl -atomic -bool -buildtags -copylocks -methods -nilfunc -printf -rangeloops -unsafeptr
 
 .PHONY: test authors changelog build docker static release lint cover vet glide-install
 
