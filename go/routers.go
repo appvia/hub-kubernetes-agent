@@ -112,6 +112,20 @@ var routes = Routes{
 	},
 
 	Route{
+		"VersionsPost",
+		strings.ToUpper("Post"),
+		"/api/v1beta/versions/{namespace}",
+		VersionsPost,
+	},
+
+	Route{
+		"VersionsGet",
+		strings.ToUpper("Get"),
+		"/api/v1beta/versions/{namespace}",
+		VersionsGet,
+	},
+
+	Route{
 		"HealthzGet",
 		strings.ToUpper("Get"),
 		"/api/v1beta/healthz",

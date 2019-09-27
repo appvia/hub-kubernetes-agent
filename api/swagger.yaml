@@ -48,6 +48,22 @@ responses:
     description: The name of the global service account that will be used to grant access to all namespaces created
     schema:
       "$ref": "#/definitions/GlobalServiceAccount"
+  imageuri:
+    description: The specification of a Docker image URI
+    schema:
+      "$ref": "#/definitions/ImageUri"
+  imageuris:
+    description: The specification of a Docker image URI
+    schema:
+      "$ref": "#/definitions/ImageUriList"
+  imagetag:
+    description: The specification of an image including a tag
+    schema:
+      "$ref": "#/definitions/ImageTag"
+  imagetags:
+    description: The specification of a list of images with tags
+    schema:
+      "$ref": "#/definitions/ImageTagList"
 
 parameters:
   name:
@@ -89,6 +105,12 @@ parameters:
     in: body
     schema:
       "$ref": "#/definitions/GlobalServiceAccount"
+    required: true
+  imageuri:
+    name: imageuri
+    description: The Docker image URI
+    in: body
+    type: string
     required: true
   kube-token:
     name: X-Kube-Token
@@ -247,6 +269,35 @@ paths:
         default:
           "$ref": "#/responses/apierror"
 
+  "/versions/{namespace}":
+    parameters:
+      - $ref: "#/parameters/kube-token"
+      - $ref: "#/parameters/kube-api-url"
+      - $ref: "#/parameters/kube-ca-cert"
+    get:
+      summary: Get all deployed image versions
+      description: |
+        Used to get the versions of all images deployed in a pod within a specified namespace
+      parameters:
+        - "$ref": "#/parameters/namespace"
+      responses:
+        '200':
+          "$ref": "#/responses/imagetags"
+        default:
+          "$ref": "#/responses/apierror"
+    post:
+      summary: Get deployed versions of a given image
+      description: |
+        Used to get the versions of an image deployed in a pod within a specified namespace
+      parameters:
+        - "$ref": "#/parameters/namespace"
+        - "$ref": "#/parameters/imageuri"
+      responses:
+        '200':
+          "$ref": "#/responses/imagetags"
+        default:
+          "$ref": "#/responses/apierror"
+
 definitions:
   APIError:
     description: Is a generic error event returned when the we have an internal error
@@ -362,3 +413,29 @@ definitions:
         type: string
     required:
       - name
+
+  ImageUri:
+    description: Docker image URI
+    type: string
+
+  ImageUriList:
+    description: A list of Docker image URIs
+    type: object
+    properties:
+      items:
+        type: array
+        items:
+          "$ref": "#/definitions/ImageUri"
+
+  ImageTag:
+    description: Docker image version tag
+    type: string
+
+  ImageTagList:
+    description: A list of Docker image version tags
+    type: object
+    properties:
+      items:
+        type: array
+        items:
+          "$ref": "#/definitions/ImageTag"
