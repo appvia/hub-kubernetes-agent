@@ -16,6 +16,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -93,13 +94,27 @@ func handleNotFoundError(w http.ResponseWriter, err error) {
 	w.Write(payload)
 }
 
+func waitForServiceAccountSecret(timeSecs int, namespace, serviceAccountName string, clientset *kubernetes.Clientset) (serviceAccount *apicorev1.ServiceAccount, found bool, err error) {
+	for i := 0; i < timeSecs; i++ {
+		serviceAccount, err = clientset.CoreV1().ServiceAccounts(namespace).Get(serviceAccountName, metav1.GetOptions{})
+		if err != nil {
+			logrus.Infof("Error getting service account: %s", serviceAccountName)
+		}
+		if len(serviceAccount.Secrets) > 0 {
+			return serviceAccount, true, nil
+		}
+		time.Sleep(time.Second)
+	}
+	return serviceAccount, false, err
+}
+
 func appendIfMissing(slice []string, new string) []string {
-    for _, existing := range slice {
-        if existing == new {
-            return slice
-        }
-    }
-    return append(slice, new)
+	for _, existing := range slice {
+		if existing == new {
+			return slice
+		}
+	}
+	return append(slice, new)
 }
 
 func NamespacesList(w http.ResponseWriter, r *http.Request) {
@@ -426,7 +441,12 @@ func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name, metav1.GetOptions{})
+	serviceAccount, found, err := waitForServiceAccountSecret(5, namespace, name, clientset)
+
+	if !found {
+		handleInternalServerError(w, "Error getting token for service account", err)
+		return
+	}
 
 	if err != nil {
 		logrus.Infof("Error getting service account: %s", name)
@@ -450,7 +470,6 @@ func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logrus.Println(err)
 	}
-	logrus.Infof("Created service account: %s in namespace: %s", name, namespace)
 	handleSuccess(w, payload)
 	return
 }
