@@ -111,6 +111,9 @@ func handleNotFoundError(w http.ResponseWriter, err error) {
 
 func waitForServiceAccountSecret(namespace, serviceAccountName string, clientset *kubernetes.Clientset) (serviceAccount *apicorev1.ServiceAccount, found bool, err error) {
 	timeoutSecs, err := getEnv("TIMEOUT", 5)
+	if err != nil {
+		logrus.Errorln(err)
+	}
 	for i := 0; i < timeoutSecs; i++ {
 		serviceAccount, err = clientset.CoreV1().ServiceAccounts(namespace).Get(serviceAccountName, metav1.GetOptions{})
 		if err != nil {
