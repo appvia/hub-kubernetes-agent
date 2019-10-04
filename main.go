@@ -129,7 +129,11 @@ func main() {
 				return cli.NewExitError("Missing AUTH_TOKEN", 1)
 			}
 			os.Setenv("AUTH_TOKEN", ctx.String("auth-token"))
-			logrus.Info("Starting server...")
+			if ctx.Bool("debug") {
+				logrus.SetLevel(logrus.DebugLevel)
+				logrus.Debugln("DEBUG mode enabled")
+			}
+			logrus.Println("Starting server on:", ctx.String("listen")+":"+ctx.String("http-port"))
 			return invokeServerAction(ctx)
 		},
 
@@ -166,6 +170,16 @@ func main() {
 				Name:   "tls-key",
 				Usage:  "the path to the file containing the private key pem `PATH`",
 				EnvVar: "TLS_KEY",
+			},
+			cli.BoolFlag{
+				Name:   "debug",
+				Usage:  "enable debug logging",
+				EnvVar: "DEBUG",
+			},
+			cli.StringFlag{
+				Name:   "wait-timeout",
+				Usage:  "the number of seconds to wait for async Kubernetes operations to complete such as service account token provisioning `TIMEOUT`",
+				EnvVar: "TIMEOUT",
 			},
 		},
 	}
