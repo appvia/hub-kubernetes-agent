@@ -30,6 +30,8 @@ var (
 	release = "v0.0.4"
 )
 
+var kubeRetries int
+
 func invokeServerAction(ctx *cli.Context) error {
 	router := sw.NewRouter()
 	router.Use(Middleware)
@@ -176,10 +178,12 @@ func main() {
 				Usage:  "enable debug logging",
 				EnvVar: "DEBUG",
 			},
-			cli.StringFlag{
-				Name:   "wait-timeout",
-				Usage:  "the number of seconds to wait for async Kubernetes operations to complete such as service account token provisioning `TIMEOUT`",
-				EnvVar: "TIMEOUT",
+			cli.IntFlag{
+				Name:        "retries",
+				Usage:       "the number of retries when waiting for async kube operations to complete like token secret provisioning `RETRIES`",
+				EnvVar:      "RETRIES",
+				Value:       5,
+				Destination: &kubeRetries,
 			},
 		},
 	}

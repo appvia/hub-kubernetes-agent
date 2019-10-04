@@ -15,7 +15,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -33,20 +32,7 @@ import (
 
 var clientset *kubernetes.Clientset
 
-const defaultWatchTimeout int = 5
-
-func getEnv(key string, fallback int) (value int, err error) {
-	if valueString, ok := os.LookupEnv(key); ok {
-		value, err = strconv.Atoi(valueString)
-		if err != nil {
-			logrus.Errorln(err)
-		}
-		return
-	}
-	return
-}
-
-func getClient(server, token, caCert string) (*kubernetes.Clientset, error) {
+func getClient(server, token, caCert string) (client *kubernetes.Clientset, err error) {
 	decodedCert, err := base64.StdEncoding.DecodeString(caCert)
 
 	if err != nil {
@@ -60,14 +46,13 @@ func getClient(server, token, caCert string) (*kubernetes.Clientset, error) {
 		TLSClientConfig: rest.TLSClientConfig{CAData: decodedCert},
 	}
 
-	client, err := kubernetes.NewForConfig(config)
-	_ = client
+	client, err = kubernetes.NewForConfig(config)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return kubernetes.NewForConfig(config)
+	return client, nil
 }
 
 func handleSuccess(w http.ResponseWriter, payload []byte) {
@@ -90,7 +75,7 @@ func handleBadRequest(w http.ResponseWriter, reason string, detail string) {
 }
 
 func handleInternalServerError(w http.ResponseWriter, reason string, err error) {
-	logrus.Println(err.Error())
+	logrus.Errorln(err.Error())
 	var apiError ApiError
 	apiError = ApiError{Reason: reason, Detail: err.Error()}
 	payload, err := json.Marshal(apiError)
@@ -110,11 +95,11 @@ func handleNotFoundError(w http.ResponseWriter, err error) {
 }
 
 func waitForServiceAccountSecret(namespace, serviceAccountName string, clientset *kubernetes.Clientset) (serviceAccount *apicorev1.ServiceAccount, found bool, err error) {
-	timeoutSecs, err := getEnv("TIMEOUT", 5)
 	if err != nil {
 		logrus.Errorln(err)
 	}
-	for i := 0; i < timeoutSecs; i++ {
+	for i := 1; i <= 5; i++ {
+		logrus.Infoln("Checking service account resource for secret..." + strconv.Itoa(i))
 		serviceAccount, err = clientset.CoreV1().ServiceAccounts(namespace).Get(serviceAccountName, metav1.GetOptions{})
 		if err != nil {
 			logrus.Infof("Error getting service account: %s", serviceAccountName)
@@ -181,7 +166,6 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	serviceAccounts, err := clientset.CoreV1().ServiceAccounts(name).List(metav1.ListOptions{})
-	_ = serviceAccounts
 
 	if err != nil {
 		handleInternalServerError(w, "error getting service accounts for namespace", err)
@@ -335,8 +319,7 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 	if namespace == "" {
 		namespace = "default"
 	}
-	namespaceCheck, err := clientset.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
-	_ = namespaceCheck
+	_, err = clientset.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
 
 	if errors.IsNotFound(err) {
 		logrus.Infof("Namespace: %s not found\n", namespace)
@@ -345,7 +328,6 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	serviceAccounts, err := clientset.CoreV1().ServiceAccounts(namespace).List(metav1.ListOptions{})
-	_ = serviceAccounts
 
 	if err != nil {
 		handleInternalServerError(w, "error getting service accounts", err)
@@ -405,7 +387,6 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name, metav1.GetOptions{})
-	_ = serviceAccount
 
 	if errors.IsNotFound(err) {
 		logrus.Infof("Service account %s not found\n", name)
