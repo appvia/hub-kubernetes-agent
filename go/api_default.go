@@ -90,9 +90,6 @@ func handleNotFoundError(w http.ResponseWriter, err error) {
 }
 
 func waitForServiceAccountSecret(namespace, serviceAccountName string, clientset *kubernetes.Clientset) (serviceAccount *apicorev1.ServiceAccount, found bool, err error) {
-	if err != nil {
-		logrus.Errorln(err)
-	}
 	for i := 1; i <= KubeRetries; i++ {
 		logrus.Infoln("Checking service account resource for secret..." + strconv.Itoa(i))
 		serviceAccount, err = clientset.CoreV1().ServiceAccounts(namespace).Get(serviceAccountName, metav1.GetOptions{})
