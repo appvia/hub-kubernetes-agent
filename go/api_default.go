@@ -46,13 +46,7 @@ func getClient(server, token, caCert string) (client *kubernetes.Clientset, err 
 		TLSClientConfig: rest.TLSClientConfig{CAData: decodedCert},
 	}
 
-	client, err = kubernetes.NewForConfig(config)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return client, nil
+	return kubernetes.NewForConfig(config)
 }
 
 func handleSuccess(w http.ResponseWriter, payload []byte) {

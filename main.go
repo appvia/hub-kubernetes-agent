@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	release = "v0.0.4"
+	release = "v0.0.5"
 )
 
 var kubeRetries int
