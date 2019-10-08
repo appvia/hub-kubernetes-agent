@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,8 +31,9 @@ import (
 )
 
 var clientset *kubernetes.Clientset
+var KubeRetries int
 
-func getClient(server, token, caCert string) (*kubernetes.Clientset, error) {
+func getClient(server, token, caCert string) (client *kubernetes.Clientset, err error) {
 	decodedCert, err := base64.StdEncoding.DecodeString(caCert)
 
 	if err != nil {
@@ -43,13 +45,6 @@ func getClient(server, token, caCert string) (*kubernetes.Clientset, error) {
 		Host:            server,
 		BearerToken:     token,
 		TLSClientConfig: rest.TLSClientConfig{CAData: decodedCert},
-	}
-
-	client, err := kubernetes.NewForConfig(config)
-	_ = client
-
-	if err != nil {
-		return nil, err
 	}
 
 	return kubernetes.NewForConfig(config)
@@ -75,7 +70,7 @@ func handleBadRequest(w http.ResponseWriter, reason string, detail string) {
 }
 
 func handleInternalServerError(w http.ResponseWriter, reason string, err error) {
-	logrus.Println(err.Error())
+	logrus.Errorln(err.Error())
 	var apiError ApiError
 	apiError = ApiError{Reason: reason, Detail: err.Error()}
 	payload, err := json.Marshal(apiError)
@@ -94,8 +89,10 @@ func handleNotFoundError(w http.ResponseWriter, err error) {
 	w.Write(payload)
 }
 
-func waitForServiceAccountSecret(timeSecs int, namespace, serviceAccountName string, clientset *kubernetes.Clientset) (serviceAccount *apicorev1.ServiceAccount, found bool, err error) {
-	for i := 0; i < timeSecs; i++ {
+func waitForServiceAccountSecret(namespace, serviceAccountName string, clientset *kubernetes.Clientset) (serviceAccount *apicorev1.ServiceAccount, found bool, err error) {
+	logrus.Debugf("Retrying %v times", strconv.Itoa(KubeRetries))
+	for i := 1; i <= KubeRetries; i++ {
+		logrus.Infoln("Checking service account resource for secret..." + strconv.Itoa(i))
 		serviceAccount, err = clientset.CoreV1().ServiceAccounts(namespace).Get(serviceAccountName, metav1.GetOptions{})
 		if err != nil {
 			logrus.Infof("Error getting service account: %s", serviceAccountName)
@@ -121,7 +118,7 @@ func NamespacesList(w http.ResponseWriter, r *http.Request) {
 	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	if err != nil {
-		logrus.Println(err)
+		logrus.Errorln(err)
 	}
 
 	namespaces, err := clientset.CoreV1().Namespaces().List(metav1.ListOptions{})
@@ -136,7 +133,7 @@ func NamespacesList(w http.ResponseWriter, r *http.Request) {
 		}
 		payload, err := json.Marshal(namespaceList)
 		if err != nil {
-			logrus.Println(err)
+			logrus.Errorln(err)
 		}
 		handleSuccess(w, payload)
 		return
@@ -162,7 +159,6 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	serviceAccounts, err := clientset.CoreV1().ServiceAccounts(name).List(metav1.ListOptions{})
-	_ = serviceAccounts
 
 	if err != nil {
 		handleInternalServerError(w, "error getting service accounts for namespace", err)
@@ -180,7 +176,7 @@ func NamespacesNameGet(w http.ResponseWriter, r *http.Request) {
 	namespaceResponse = Namespace{Name: name, Spec: &NamespaceSpec{ServiceAccounts: namespaceServiceAccounts}}
 	payload, err := json.Marshal(namespaceResponse)
 	if err != nil {
-		logrus.Println(err)
+		logrus.Errorln(err)
 	}
 	handleSuccess(w, payload)
 	return
@@ -190,7 +186,7 @@ func NamespacesNameDelete(w http.ResponseWriter, r *http.Request) {
 	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	if err != nil {
-		logrus.Println(err)
+		logrus.Errorln(err)
 	}
 
 	vars := mux.Vars(r)
@@ -221,14 +217,14 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	} else {
-		logrus.Println(string(body))
+		logrus.Debugln(string(body))
 	}
 
 	var n Namespace
 	err = json.Unmarshal(body, &n)
 
 	if err != nil {
-		logrus.Println(err)
+		logrus.Errorln(err)
 		handleInternalServerError(w, "client error", err)
 		return
 	}
@@ -301,7 +297,7 @@ func NamespacesNamePut(w http.ResponseWriter, r *http.Request) {
 	namespaceItem = Namespace{Name: namespaceName, Spec: &NamespaceSpec{ServiceAccounts: namespaceServiceAccounts}}
 	payload, err := json.Marshal(namespaceItem)
 	if err != nil {
-		logrus.Println(err)
+		logrus.Errorln(err)
 	}
 	handleSuccess(w, payload)
 	return
@@ -316,8 +312,7 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 	if namespace == "" {
 		namespace = "default"
 	}
-	namespaceCheck, err := clientset.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
-	_ = namespaceCheck
+	_, err = clientset.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
 
 	if errors.IsNotFound(err) {
 		logrus.Infof("Namespace: %s not found\n", namespace)
@@ -326,7 +321,6 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	serviceAccounts, err := clientset.CoreV1().ServiceAccounts(namespace).List(metav1.ListOptions{})
-	_ = serviceAccounts
 
 	if err != nil {
 		handleInternalServerError(w, "error getting service accounts", err)
@@ -341,7 +335,7 @@ func ServiceAccountsNamespaceGet(w http.ResponseWriter, r *http.Request) {
 	payload, err := json.Marshal(serviceAccountsList)
 
 	if err != nil {
-		logrus.Println(err)
+		logrus.Errorln(err)
 	}
 
 	logrus.Infof("Listing service accounts for namespace: %s", namespace)
@@ -353,7 +347,7 @@ func ServiceAccountsNamespaceNameDelete(w http.ResponseWriter, r *http.Request) 
 	clientset, err := getClient(r.Header.Get("X-Kube-API-URL"), r.Header.Get("X-Kube-Token"), r.Header.Get("X-Kube-CA"))
 
 	if err != nil {
-		logrus.Println(err)
+		logrus.Errorln(err)
 	}
 
 	vars := mux.Vars(r)
@@ -386,7 +380,6 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	serviceAccount, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name, metav1.GetOptions{})
-	_ = serviceAccount
 
 	if errors.IsNotFound(err) {
 		logrus.Infof("Service account %s not found\n", name)
@@ -403,7 +396,7 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		logrus.Infof("Error getting service account token for %s", name)
-		logrus.Println(err)
+		logrus.Errorln(err)
 	}
 
 	responseServiceAccountSpec := ServiceAccountSpec{Name: name, Token: string(secret.Data["token"]), Namespace: namespace}
@@ -412,7 +405,7 @@ func ServiceAccountsNamespaceNameGet(w http.ResponseWriter, r *http.Request) {
 
 	payload, err := json.Marshal(responseServiceAccount)
 	if err != nil {
-		logrus.Println(err)
+		logrus.Errorln(err)
 	}
 	logrus.Infof("Found service account: %s", name)
 	handleSuccess(w, payload)
@@ -441,7 +434,7 @@ func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serviceAccount, found, err := waitForServiceAccountSecret(5, namespace, name, clientset)
+	serviceAccount, found, err := waitForServiceAccountSecret(namespace, name, clientset)
 
 	if !found {
 		handleInternalServerError(w, "Error getting token for service account", err)
@@ -468,7 +461,7 @@ func ServiceAccountsNamespaceNamePut(w http.ResponseWriter, r *http.Request) {
 
 	payload, err := json.Marshal(responseServiceAccount)
 	if err != nil {
-		logrus.Println(err)
+		logrus.Errorln(err)
 	}
 	handleSuccess(w, payload)
 	return
@@ -492,7 +485,7 @@ func VersionsPost(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	} else {
-		logrus.Println(string(body))
+		logrus.Debugln(string(body))
 	}
 
 	var imageuri ImageUri
@@ -529,14 +522,14 @@ func VersionsPost(w http.ResponseWriter, r *http.Request) {
 		logrus.Infoln("No matching images found")
 		payload, err = json.Marshal([]ImageTagList{})
 		if err != nil {
-			logrus.Println(err)
+			logrus.Errorln(err)
 		}
 	} else {
 		logrus.Infoln("Matching images found")
 		payload, err = json.Marshal(deployedImageVersions)
 	}
 	if err != nil {
-		logrus.Println(err)
+		logrus.Errorln(err)
 	}
 	handleSuccess(w, payload)
 }
@@ -579,14 +572,14 @@ func VersionsGet(w http.ResponseWriter, r *http.Request) {
 		logrus.Infoln("No containers found")
 		payload, err = json.Marshal([]ImageTagList{})
 		if err != nil {
-			logrus.Println(err)
+			logrus.Errorln(err)
 		}
 	} else {
 		logrus.Infoln("Containers found")
 		payload, err = json.Marshal(deployedImageVersions)
 	}
 	if err != nil {
-		logrus.Println(err)
+		logrus.Errorln(err)
 	}
 	handleSuccess(w, payload)
 }

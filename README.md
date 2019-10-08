@@ -25,6 +25,7 @@ GLOBAL OPTIONS:
    --auth-token TOKEN  authentication token used to verifier the caller TOKEN [$AUTH_TOKEN]
    --tls-cert PATH     the path to the file containing the certificate pem PATH [$TLS_CERT]
    --tls-key PATH      the path to the file containing the private key pem PATH [$TLS_KEY]
+   --debug             enable debug logging [$DEBUG]
    --help, -h          show help
    --version, -v       print the version
 ```
