@@ -31,6 +31,7 @@ import (
 )
 
 var clientset *kubernetes.Clientset
+var KubeRetries int
 
 func getClient(server, token, caCert string) (client *kubernetes.Clientset, err error) {
 	decodedCert, err := base64.StdEncoding.DecodeString(caCert)
@@ -92,7 +93,7 @@ func waitForServiceAccountSecret(namespace, serviceAccountName string, clientset
 	if err != nil {
 		logrus.Errorln(err)
 	}
-	for i := 1; i <= 5; i++ {
+	for i := 1; i <= KubeRetries; i++ {
 		logrus.Infoln("Checking service account resource for secret..." + strconv.Itoa(i))
 		serviceAccount, err = clientset.CoreV1().ServiceAccounts(namespace).Get(serviceAccountName, metav1.GetOptions{})
 		if err != nil {

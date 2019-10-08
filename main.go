@@ -30,8 +30,6 @@ var (
 	release = "v0.0.5"
 )
 
-var kubeRetries int
-
 func invokeServerAction(ctx *cli.Context) error {
 	router := sw.NewRouter()
 	router.Use(Middleware)
@@ -183,7 +181,7 @@ func main() {
 				Usage:       "the number of retries when waiting for async kube operations to complete like token secret provisioning `RETRIES`",
 				EnvVar:      "RETRIES",
 				Value:       5,
-				Destination: &kubeRetries,
+				Destination: &sw.KubeRetries,
 			},
 		},
 	}
