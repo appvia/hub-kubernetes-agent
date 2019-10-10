@@ -112,17 +112,10 @@ var routes = Routes{
 	},
 
 	Route{
-		"VersionsPost",
-		strings.ToUpper("Post"),
-		"/api/v1beta/versions/{namespace}",
-		VersionsPost,
-	},
-
-	Route{
-		"VersionsGet",
+		"PodsGet",
 		strings.ToUpper("Get"),
-		"/api/v1beta/versions/{namespace}",
-		VersionsGet,
+		"/api/v1beta/pods/{namespace}",
+		PodsGet,
 	},
 
 	Route{
