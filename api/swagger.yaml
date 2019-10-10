@@ -1,5 +1,5 @@
 ---
-swagger: '2.0'
+swagger: "2.0"
 info:
   contact:
     name: admin@appvia.io
@@ -15,6 +15,8 @@ securityDefinitions:
     type: apiKey
     in: header
     name: Authorization
+security:
+  - apikey: []
 basePath: "/api/v1beta"
 consumes:
   - application/json
@@ -26,8 +28,6 @@ responses:
     description: A generic erorr returned by the api
     schema:
       "$ref": "#/definitions/APIError"
-  notfound:
-    description: The resource does not exist
   service-account:
     description: Returning the status of a service account
     schema:
@@ -44,26 +44,8 @@ responses:
     description: A collection namespaces found in the cluster
     schema:
       "$ref": "#/definitions/NamespaceList"
-  global-service-account:
-    description: The name of the global service account that will be used to grant access to all namespaces created
-    schema:
-      "$ref": "#/definitions/GlobalServiceAccount"
-  imageuri:
-    description: The specification of a Docker image URI
-    schema:
-      "$ref": "#/definitions/ImageUri"
-  imageuris:
-    description: The specification of a Docker image URI
-    schema:
-      "$ref": "#/definitions/ImageUriList"
-  imagetag:
-    description: The specification of an image including a tag
-    schema:
-      "$ref": "#/definitions/ImageTag"
-  imagetags:
-    description: The specification of a list of images with tags
-    schema:
-      "$ref": "#/definitions/ImageTagList"
+  pods:
+    description: An object containing a list of pods
 
 parameters:
   name:
@@ -85,32 +67,12 @@ parameters:
     schema:
       "$ref": "#/definitions/Namespace"
     required: true
-  service-account-list:
-    name: service-account-list
-    description: A list of service accounts
-    in: body
-    schema:
-      "$ref": "#/definitions/ServiceAccountSpec"
-    required: true
   service-account-definition:
     name: service-account
     description: The definition of a service account
     in: body
     schema:
       "$ref": "#/definitions/ServiceAccount"
-    required: true
-  global-service-account:
-    name: global-service-account
-    description: The definition of a global service account
-    in: body
-    schema:
-      "$ref": "#/definitions/GlobalServiceAccount"
-    required: true
-  imageuri:
-    name: imageuri
-    description: The Docker image URI
-    in: body
-    type: string
     required: true
   kube-token:
     name: X-Kube-Token
@@ -132,6 +94,7 @@ parameters:
     required: true
 paths:
   "/healthz":
+    security: []
     get:
       summary: Get health of Agent
       description: |
@@ -141,7 +104,7 @@ paths:
       tags:
         - health
       responses:
-        '200':
+        "200":
           description: Success
         default:
           "$ref": "#/responses/apierror"
@@ -158,7 +121,7 @@ paths:
       parameters:
         - "$ref": "#/parameters/namespace"
       responses:
-        '200':
+        "200":
           "$ref": "#/responses/service-accounts"
         default:
           "$ref": "#/responses/apierror"
@@ -176,11 +139,11 @@ paths:
         - "$ref": "#/parameters/namespace"
         - "$ref": "#/parameters/name"
       responses:
-        '200':
+        "200":
           "$ref": "#/responses/service-account"
-        '400':
+        "400":
           "$ref": "#/responses/apierror"
-        '404':
+        "404":
           "$ref": "#/responses/apierror"
         default:
           "$ref": "#/responses/apierror"
@@ -194,7 +157,7 @@ paths:
         - "$ref": "#/parameters/name"
         - "$ref": "#/parameters/service-account-definition"
       responses:
-        '200':
+        "200":
           "$ref": "#/responses/service-account"
         default:
           "$ref": "#/responses/apierror"
@@ -207,7 +170,7 @@ paths:
         - "$ref": "#/parameters/namespace"
         - "$ref": "#/parameters/name"
       responses:
-        '204':
+        "204":
           description: Successfully deleted the service account
         default:
           "$ref": "#/responses/apierror"
@@ -222,8 +185,8 @@ paths:
       description: |
         Used to list namespaces
       responses:
-        '200':
-          "$ref": "#/responses/namespace"
+        "200":
+          "$ref": "#/responses/namespaces"
         default:
           "$ref": "#/responses/apierror"
 
@@ -239,7 +202,7 @@ paths:
       parameters:
         - "$ref": "#/parameters/name"
       responses:
-        '200':
+        "200":
           "$ref": "#/responses/namespace"
         default:
           "$ref": "#/responses/apierror"
@@ -252,7 +215,7 @@ paths:
         - "$ref": "#/parameters/namespace-definition"
         - "$ref": "#/parameters/name"
       responses:
-        '200':
+        "200":
           "$ref": "#/responses/namespace"
         default:
           "$ref": "#/responses/apierror"
@@ -264,37 +227,25 @@ paths:
       parameters:
         - "$ref": "#/parameters/name"
       responses:
-        '204':
+        "204":
           description: Successfully deleted the namespace
         default:
           "$ref": "#/responses/apierror"
 
-  "/versions/{namespace}":
+  "/pods/{namespace}":
     parameters:
       - $ref: "#/parameters/kube-token"
       - $ref: "#/parameters/kube-api-url"
       - $ref: "#/parameters/kube-ca-cert"
     get:
-      summary: Get all deployed image versions
+      summary: Retrieves pods within the specified namespace
       description: |
-        Used to get the versions of all images deployed in a pod within a specified namespace
+        Used to retrieve a list of pods and their metadata from within the specified namespace
       parameters:
         - "$ref": "#/parameters/namespace"
       responses:
-        '200':
-          "$ref": "#/responses/imagetags"
-        default:
-          "$ref": "#/responses/apierror"
-    post:
-      summary: Get deployed versions of a given image
-      description: |
-        Used to get the versions of an image deployed in a pod within a specified namespace
-      parameters:
-        - "$ref": "#/parameters/namespace"
-        - "$ref": "#/parameters/imageuri"
-      responses:
-        '200':
-          "$ref": "#/responses/imagetags"
+        "200":
+          "$ref": "#/responses/pods"
         default:
           "$ref": "#/responses/apierror"
 
@@ -334,8 +285,6 @@ definitions:
         type: string
       service_accounts:
         "$ref": "#/definitions/ServiceAccountList"
-    required:
-      - spec
 
   Namespace:
     description: The resource definition for a namespace in the cluster
@@ -392,50 +341,3 @@ definitions:
         type: array
         items:
           "$ref": "#/definitions/ServiceAccountSpec"
-
-  GlobalServiceAccount:
-    description: A global service account
-    type: object
-    allOf:
-      - "$ref": "#/definitions/Object"
-    properties:
-      spec:
-        "$ref": "#/definitions/GlobalServiceAccountSpec"
-    required:
-      - spec
-
-  GlobalServiceAccountSpec:
-    description: The resource specification of a global service account
-    type: object
-    properties:
-      name:
-        description: The name of the global service account
-        type: string
-    required:
-      - name
-
-  ImageUri:
-    description: Docker image URI
-    type: string
-
-  ImageUriList:
-    description: A list of Docker image URIs
-    type: object
-    properties:
-      items:
-        type: array
-        items:
-          "$ref": "#/definitions/ImageUri"
-
-  ImageTag:
-    description: Docker image version tag
-    type: string
-
-  ImageTagList:
-    description: A list of Docker image version tags
-    type: object
-    properties:
-      items:
-        type: array
-        items:
-          "$ref": "#/definitions/ImageTag"

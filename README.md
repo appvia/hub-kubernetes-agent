@@ -10,7 +10,7 @@ USAGE:
     [global options] command [command options] [arguments...]
 
 VERSION:
-   v0.0.4
+   v0.0.6
 
 AUTHOR:
    Daniel Whatmuff <daniel.whatmuff@appvia.io>
